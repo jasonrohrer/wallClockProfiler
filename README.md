@@ -89,7 +89,8 @@ You can see that 99% of the samples occurred down inside `__GI-fseek`.  No exist
 
 ## Sample output from other profilers
 
-First, the old standby, gprof.  From calling:
+### First, the old standby, gprof.
+From calling:
 ```
 g++ -pg -g -o testProf testProf.cpp
 ./testProf
@@ -130,7 +131,8 @@ Each sample counts as 0.01 seconds.
 
 ```
 
-Next, perf.  From calling:
+### Next, perf.
+From calling:
 ```
 perf record -g ./testProf
 perf report
@@ -233,7 +235,8 @@ Gives us a bit more information in the profile, but it's still not that useful, 
                           sysenter_after_call
                           0xb77b2428
 ```
-Next, gperftools.  From calling:
+### Next, gperftools.
+From calling:
 
 ```
 LD_PRELOAD=/usr/local/lib/libprofiler.so CPUPROFILE=prof.out ./testProf
