@@ -88,7 +88,48 @@ You can see that 99% of the samples occurred down inside `__GI-fseek`.  No exist
 
 ## Sample output from other profilers
 
-First, perf.  From calling:
+First, the old standby, gprof.  From calling:
+```
+g++ -pg -g -o testProf testProf.cpp
+./testProf
+gprof ./testProf
+gprof -l ./testProf
+```
+Output:
+```
+Flat function profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ns/call  ns/call  name    
+ 55.88      0.10     0.10 10000000     9.50     9.50  getRandomBoundedInt(int, int)
+ 38.24      0.16     0.07 10000000     6.50    16.00  readRandFileValue(_IO_FILE*)
+  5.88      0.17     0.01                             main
+  0.00      0.17     0.00        1     0.00     0.00  _GLOBAL__sub_I_MAX
+  0.00      0.17     0.00        1     0.00     0.00  __static_initialization_and_destruction_0(int, int)
+  
+  
+Flat line profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ns/call  ns/call  name    
+ 23.53      0.04     0.04                             readRandFileValue(_IO_FILE*) (testProf.cpp:26 @ 80486d0)
+ 23.53      0.08     0.04                             getRandomBoundedInt(int, int) (testProf.cpp:14 @ 8048677)
+ 11.76      0.10     0.02                             readRandFileValue(_IO_FILE*) (testProf.cpp:24 @ 80486b5)
+ 11.76      0.12     0.02                             getRandomBoundedInt(int, int) (testProf.cpp:10 @ 8048658)
+ 11.76      0.14     0.02                             getRandomBoundedInt(int, int) (testProf.cpp:16 @ 80486a0)
+  5.88      0.15     0.01 10000000     1.00     1.00  getRandomBoundedInt(int, int) (testProf.cpp:9 @ 804864d)
+  2.94      0.15     0.01 10000000     0.50     0.50  readRandFileValue(_IO_FILE*) (testProf.cpp:23 @ 80486aa)
+  2.94      0.16     0.01                             getRandomBoundedInt(int, int) (testProf.cpp:17 @ 80486a8)
+  2.94      0.17     0.01                             main (testProf.cpp:42 @ 8048738)
+  2.94      0.17     0.01                             main (testProf.cpp:43 @ 8048742)
+  0.00      0.17     0.00        1     0.00     0.00  _GLOBAL__sub_I_MAX (testProf.cpp:50 @ 80487c9)
+  0.00      0.17     0.00        1     0.00     0.00  __static_initialization_and_destruction_0(int, int) (testProf.cpp:50 @ 804878c)
+
+```
+
+Next, perf.  From calling:
 ```
 perf record -g ./testProf
 perf report
