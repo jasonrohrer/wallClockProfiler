@@ -9,7 +9,7 @@ Not perf.  Not gperftools.  Not OProfile.  Obviously not gprof.  None of the usu
 
 Some of them were telling me that the majority of the running time was spent in rand (which was used to pick the random offset to fseek to).  The truth was, this was only about 1% of the simple program's wall-clock runtime.  If I want to speed this program up, optimizing rand is going to be a waste of time.
 
-Valgrind's callgrind can do it, but it makes the program 50x slower (or something like that), so it's useless in production environments (for example, profiling a live server that has real users connecting to it).
+Valgrind's callgrind can provide better results than the others, but it makes the program 10x slower (or something like that), so it's useless in production environments (for example, profiling a live server that has real users connecting to it).
 
 And it turns out that what you actually want to do is really pretty simple.  So simple that some very smart people have suggested that you do it manually:
 
@@ -29,7 +29,7 @@ It can either run your target program directly, or attach to an existing process
 
 For example, if your server process is experiencing heavy load right now, you can attach to it for the next ten seconds, grab a few hundred stack samples, then see a nice little text report telling you exactly where your server is spending its time right now.
 
-Overhead scales with your chosen sampling rate.  If you're looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it. 
+Overhead scales with your chosen sampling rate.  If you're looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it.  For example, With 20 samples per second, I'm seeing a 12% slowdown on my test program.
 
 ## Examples
 
@@ -89,7 +89,7 @@ You can see that 99% of the samples occurred down inside `__GI-fseek`.  No exist
 
 ## Sample output from other profilers
 
-### First, the old standby, gprof.
+### gprof
 From calling:
 ```
 g++ -pg -g -o testProf testProf.cpp
@@ -131,7 +131,7 @@ Each sample counts as 0.01 seconds.
 
 ```
 
-### Next, perf.
+### perf
 From calling:
 ```
 perf record -g ./testProf
@@ -235,7 +235,7 @@ Gives us a bit more information in the profile, but it's still not that useful, 
                           sysenter_after_call
                           0xb77b2428
 ```
-### Next, gperftools.
+### gperftools
 From calling:
 
 ```
@@ -268,3 +268,58 @@ Total: 1456 samples
 Here at least we see that 92% of our runtime was... down inside some mystery function.  But that mystery function was called from somewhere, right?  Even outputing to a full visual callgraph viewer (using the `--callgrind` output option for pprof) still shows that 92% of our execution time was spent in a function with no callers.
 
 Some sources suggest setting CPUPROFILE_REALTIME=1 to enable wall-clock based sampling, but I found that it made no difference in the resulting profile.
+
+### Vallgrind callgrind
+From calling:
+```
+```
+Output:
+```
+--------------------------------------------------------------------------------
+           Ir   sysCount sysTime 
+--------------------------------------------------------------------------------
+5,380,492,114 19,999,640  50,476  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+           Ir   sysCount sysTime  file:function
+--------------------------------------------------------------------------------
+1,689,942,527          .       .  /build/buildd/eglibc-2.19/libio/fileops.c:_IO_
+file_seekoff@@GLIBC_2.1 [/lib/i386-linux-gnu/libc-2.19.so]
+  430,000,000          .       .  /build/buildd/eglibc-2.19/libio/fseek.c:fseek 
+[/lib/i386-linux-gnu/libc-2.19.so]
+  429,999,996          .       .  /build/buildd/eglibc-2.19/libio/ioseekoff.c:_I
+O_seekoff_unlocked [/lib/i386-linux-gnu/libc-2.19.so]
+  420,013,020          .       .  /build/buildd/eglibc-2.19/stdlib/random_r.c:ra
+ndom_r [/lib/i386-linux-gnu/libc-2.19.so]
+  350,002,466          .       .  /build/buildd/eglibc-2.19/libio/getc.c:getc [/
+lib/i386-linux-gnu/libc-2.19.so]
+  320,000,004          .       .  testProf.cpp:getRandomBoundedInt(int, int) [/h
+ome/jasonrohrer2/checkout/wallClockProfiler/testProgram/testProf]
+  310,000,000          .       .  /build/buildd/eglibc-2.19/misc/../sysdeps/unix
+/sysv/linux/llseek.c:llseek [/lib/i386-linux-gnu/libc-2.19.so]
+  230,000,000          .       .  /build/buildd/eglibc-2.19/stdlib/random.c:rand
+om [/lib/i386-linux-gnu/libc-2.19.so]
+  220,000,008          .       .  testProf.cpp:readRandFileValue(_IO_FILE*) [/ho
+me/jasonrohrer2/checkout/wallClockProfiler/testProgram/testProf]
+  180,010,670          .       .  /build/buildd/eglibc-2.19/string/../sysdeps/i3
+86/i686/multiarch/strcat.S:0x0012694b [/lib/i386-linux-gnu/libc-2.19.so]
+  170,000,000          .       .  /build/buildd/eglibc-2.19/libio/fileops.c:_IO_
+file_seek [/lib/i386-linux-gnu/libc-2.19.so]
+  100,000,000          .       .  /build/buildd/eglibc-2.19/libio/libioP.h:fseek
+  100,000,000          .       .  /build/buildd/eglibc-2.19/libio/libioP.h:getc
+   99,995,670          .       .  /build/buildd/eglibc-2.19/io/../sysdeps/unix/s
+yscall-template.S:__read_nocancel [/lib/i386-linux-gnu/libc-2.19.so]
+   99,995,670          .       .  /build/buildd/eglibc-2.19/libio/fileops.c:_IO_
+file_read [/lib/i386-linux-gnu/libc-2.19.so]
+   90,000,048          .       .  testProf.cpp:main [/home/jasonrohrer2/checkout
+/wallClockProfiler/testProgram/testProf]
+   80,000,000          .       .  /build/buildd/eglibc-2.19/stdlib/rand.c:rand [
+/lib/i386-linux-gnu/libc-2.19.so]
+   39,999,154 19,999,578  50,323  ???:_dl_sysinfo_int80 [/lib/i386-linux-gnu/ld-
+2.19.so]
+```
+Yes!  fseek is correctly at the top of the list.  But the program ran 11x slower (160 seconds vs 14 seconds).  Also, it's still overestimating the impact of the rand calls in the overall runtime.
+
+For example, if we comment out the calls to fseek and fgetc, while leaving all the rand calls in place, the runtime drops from 14 seconds down to 0.25 seconds.  I.e., around 1% of the runtime is actually spent in rand, but the the Kcachegrind graphical visuallizer output (not shown here) pegs rand at 14% of the runtime, while only giving fseek 64%, instead of the 99% of the runtime that it actually occupies.
+
+But at least valgrind finds fseek as the hotspot.
