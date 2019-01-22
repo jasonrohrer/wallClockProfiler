@@ -1377,16 +1377,18 @@ int main( int inNumArgs, char **inArgs ) {
         skipGDBResponse();
         
 
-        // sample stack
-        sendCommand( "-stack-list-frames" );
-        //skipGDBResponse();
-        logGDBStackResponse();
+        if( !programExited ) {
+            // sample stack
+            sendCommand( "-stack-list-frames" );
+            logGDBStackResponse();
+            }
         
-        
-        // continue running
-        
-        sendCommand( "-exec-continue" );
-        skipGDBResponse();
+        if( !programExited ) {
+            // continue running
+            
+            sendCommand( "-exec-continue" );
+            skipGDBResponse();
+            }
         }
 
     if( programExited ) {
