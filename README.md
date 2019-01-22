@@ -26,4 +26,6 @@ g++ -o wallClockProfiler wallClockProfiler.cpp
 
 It can either run your target program directly, or attach to an existing process.  It can sample however many times per second you want it to, and it can detach automatically after a certain number of seconds.
 
-For example, if your server process is experiencing heavy load right now, you can attach to it for the next ten seconds and grab a few hundred stack samples.
+For example, if your server process is experiencing heavy load right now, you can attach to it for the next ten seconds, grab a few hundred stack samples, then see a nice little text report telling you exactly where your server is spending its time right now.
+
+Overhead scales with your chosen sampling rate.  If your looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it. 
