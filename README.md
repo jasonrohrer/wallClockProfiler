@@ -1,5 +1,5 @@
 # wallClockProfiler
-Sadly, this apparently ONLY profiler in existence on Linux that actually works.
+Sadly, this is apparently the ONLY profiler on Linux that actually works.
 
 By "actually works," I mean that a profiler is supposed to give you a rough estimate where your program is spending the most time.  Slow programs are slow for a variety of reasons, not just because of inefficient algorithms that waste CPU cycles.  Lots of programs are I/O bound.  If you profile such a program, you want to know where the I/O hotspots are, and you don't care where the CPU hotspots are, because they are tiny, by comparison.
 
