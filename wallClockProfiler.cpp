@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
 
@@ -1225,9 +1226,9 @@ int main( int inNumArgs, char **inArgs ) {
         usage();
         }
     
-    int samplesPerSecond = 100;
+    float samplesPerSecond = 100;
     
-    sscanf( inArgs[1], "%d", &samplesPerSecond );
+    sscanf( inArgs[1], "%f", &samplesPerSecond );
     
 
 
@@ -1346,10 +1347,10 @@ int main( int inNumArgs, char **inArgs ) {
     int numSamples = 0;
     
 
-    int usPerSample = 1000000 / samplesPerSecond;
+    int usPerSample = lrint( 1000000 / samplesPerSecond );
     
 
-    printf( "Sampling %d times per second, for %d usec between samples\n",
+    printf( "Sampling %.2f times per second, for %d usec between samples\n",
             samplesPerSecond, usPerSample );
     
     time_t startTime = time( NULL );
@@ -1372,7 +1373,6 @@ int main( int inNumArgs, char **inArgs ) {
     
         // interrupt
         kill( pid, SIGINT );
-        numSamples++;
         
         skipGDBResponse();
         
@@ -1381,6 +1381,7 @@ int main( int inNumArgs, char **inArgs ) {
             // sample stack
             sendCommand( "-stack-list-frames" );
             logGDBStackResponse();
+            numSamples++;
             }
         
         if( !programExited ) {
