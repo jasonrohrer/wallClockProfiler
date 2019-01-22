@@ -28,4 +28,4 @@ It can either run your target program directly, or attach to an existing process
 
 For example, if your server process is experiencing heavy load right now, you can attach to it for the next ten seconds, grab a few hundred stack samples, then see a nice little text report telling you exactly where your server is spending its time right now.
 
-Overhead scales with your chosen sampling rate.  If your looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it. 
+Overhead scales with your chosen sampling rate.  If you're looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it. 
