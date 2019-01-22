@@ -1519,12 +1519,12 @@ int main( int inNumArgs, char **inArgs ) {
         }
     else {
         printf( "Detatching from program\n" );
+        
+        log( "Sending SIGINT to target process", inArgs[2] );
         kill( pid, SIGINT );
-        
         skipGDBResponse();
-        
-        sendCommand( "-target-detach" );
-        
+
+        sendCommand( "-target-detach" );        
         skipGDBResponse();
         }
     
