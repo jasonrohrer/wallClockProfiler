@@ -2,14 +2,921 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
 
 #include <time.h>
+#include <stdarg.h>
 
 
-#include "minorGems/util/stringUtils.h"
-#include "minorGems/util/SimpleVector.h"
+
+
+
+
+
+// **************************************
+// dependency code imported from minorGems
+
+// these came from:
+//#include "minorGems/util/SimpleVector.h"
+
+
+const int defaultStartSize = 2;
+
+template <class Type>
+class SimpleVector {
+	public:
+	
+		SimpleVector();		// create an empty vector
+		// create an empty vector with a size estimate
+        SimpleVector(int sizeEstimate); 
+		
+		~SimpleVector();
+		
+        
+        // copy constructor
+        SimpleVector( const SimpleVector &inCopy );
+        
+        // assignment operator
+        SimpleVector & operator = (const SimpleVector &inOther );
+        
+
+
+		
+		void push_back(Type x);		// add x to the end of the vector
+
+        // add array of elements to the end of the vector
+		void push_back(Type *inArray, int inLength);		
+
+        // add all elements from other vector
+        void push_back_other( SimpleVector<Type> *inOtherVector );
+		
+
+        void push_front(Type x);  // add x to the front of the vector (slower)
+
+        // add x to middle of vector, after inNumBefore items, pushing
+        // the rest further back
+        void push_middle( Type x, int inNumBefore );
+        
+
+        // get a ptr to element at index in vector
+		Type *getElement(int index);		
+
+		Type *getElementFast(int index); // no bounds checking
+
+        // get an element directly as a copy on the stack
+        // (changes to this returned element will not affect the element in the
+        //  vector)
+        // This is useful when the vector is storing pointers anyway.
+		Type getElementDirect(int index);
+
+
+        Type *getLastElement() {
+            return getElement( size() - 1 );
+            }
+        
+        
+        Type getLastElementDirect() {
+            return getElementDirect( size() - 1 );
+            }
+		
+		
+		int size();		// return the number of allocated elements in the vector
+		
+        // delete element at an index in vector
+		bool deleteElement(int index);		
+        
+        // deletes a block of elements from the start
+        // way more efficient than calling deleteElement(0) repeatedly
+        bool deleteStartElements( int inNumToDelete );
+        
+		
+        void deleteLastElement() {
+            deleteElement( size() - 1 );
+            }
+        
+		/**
+		 * Deletes a particular element.  Deletes the first element
+		 * in vector == to inElement.
+		 *
+		 * @param inElement the element to delete.
+		 *
+		 * @return true iff an element was deleted.
+		 */
+		bool deleteElementEqualTo( Type inElement );
+
+
+        // shrinks vector, discaring elements beyond inNewSize
+        void shrink( int inNewSize );
+        
+        
+        // swaps element at index A with element at index B
+        void swap( int inA, int inB );
+        
+
+
+		/**
+		 * Gets the index of a particular element.  Gets the index of the
+		 * first element in vector == to inElement.
+		 *
+		 * @param inElement the element to get the index of.
+		 *
+		 * @return the index if inElement, or -1 if inElement is not found.
+		 */
+		int getElementIndex( Type inElement );
+
+		
+		
+		void deleteAll();		// delete all elements from vector
+
+
+        
+		/**
+		 * Gets the elements as an array.
+		 *
+		 * @return the a new array containing all elements in this vector.
+         *   Must be destroyed by caller, though elements themselves are
+         *   not copied.
+		 */
+		Type *getElementArray();
+
+
+        
+        /**
+		 * Gets the char elements as a \0-terminated string.
+		 *
+		 * @return a \0-terminated string containing all elements in this
+         *   vector.
+         *   Must be destroyed by caller.
+		 */
+		char *getElementString();
+
+
+        /**
+		 * Sets the char elements as a \0-terminated string.
+		 *
+		 * @param inString a \0-terminated string containing all elements to 
+         *   set this vector with.
+         *   Must be destroyed by caller.
+		 */
+		void setElementString( const char *inString );
+
+
+
+        /**
+		 * Appends chars from a \0-terminated string.
+		 *
+		 * @param inString a \0-terminated string containing all elements to 
+         *   append to this vector.
+         *   Must be destroyed by caller.
+		 */
+		void appendElementString( const char *inString );
+        
+
+
+        /**
+		 * Appends elements from an array.
+		 *
+		 * @param inArray elements to append to this vector.
+         *   Must be destroyed by caller.
+         * @param inSize the number of elements to append.
+		 */
+        void appendArray( Type *inArray, int inSize );
+        
+
+        
+        /**
+         * Toggles printing of messages when vector expands itself
+         * Defaults to off.
+         *
+         * @param inPrintMessage true to turn expansion message printing on.
+         * @param inVectorName the name to include in the message.
+         *   Defaults to "unnamed".
+         */
+        void setPrintMessageOnVectorExpansion( 
+            char inPrintMessage, const char *inVectorName = "unnamed" );
+        
+
+
+
+        /**
+		 * For vectors of char* elements (c-strings).
+         *
+         * De-allocates a specific char* elements in the vector (by calling 
+         * delete[] on it) and deletes it from the vector. 
+		 * 
+         * Returns true if found and deleted
+         */
+		char deallocateStringElement( int inIndex );
+
+
+
+        /**
+		 * For vectors of char* elements (c-strings).
+         *
+         * De-allocates all char* elements in the vector (by calling delete[] 
+         * on each element) and deletes them from the vector. 
+		 */
+		void deallocateStringElements();
+
+
+
+	protected:
+		Type *elements;
+		int numFilledElements;
+		int maxSize;
+		int minSize;	// number of allocated elements when vector is empty
+
+
+        char printExpansionMessage;
+        const char *vectorName;
+		};
+		
+		
+template <class Type>		
+inline SimpleVector<Type>::SimpleVector()
+		: vectorName( "" ) {
+	elements = new Type[defaultStartSize];
+	numFilledElements = 0;
+	maxSize = defaultStartSize;
+	minSize = defaultStartSize;
+
+    printExpansionMessage = false;
+    }
+
+template <class Type>
+inline SimpleVector<Type>::SimpleVector(int sizeEstimate)
+		: vectorName( "" ) {
+	elements = new Type[sizeEstimate];
+	numFilledElements = 0;
+	maxSize = sizeEstimate;
+	minSize = sizeEstimate;
+    
+    printExpansionMessage = false;
+    }
+	
+template <class Type>	
+inline SimpleVector<Type>::~SimpleVector() {
+	delete [] elements;
+	}	
+
+
+
+// copy constructor
+template <class Type>
+inline SimpleVector<Type>::SimpleVector( const SimpleVector<Type> &inCopy )
+        : elements( new Type[ inCopy.maxSize ] ),
+          numFilledElements( inCopy.numFilledElements ),
+          maxSize( inCopy.maxSize ), minSize( inCopy.minSize ),
+          printExpansionMessage( inCopy.printExpansionMessage ),
+          vectorName( inCopy.vectorName ) {
+    
+    // if these objects contain pointers to stack, etc, this is not 
+    // going to work (not a deep copy)
+    // because it won't invoke the copy constructors of the objects!
+    //memcpy( elements, inCopy.elements, sizeof( Type ) * numFilledElements );
+    
+    for( int i=0; i<inCopy.numFilledElements; i++ ) {
+        elements[i] = inCopy.elements[i];
+        }
+
+    }
+
+
+
+// assignment operator
+template <class Type>
+inline SimpleVector<Type> & SimpleVector<Type>::operator = (
+    const SimpleVector<Type> &inOther ) {
+    
+    // pattern found on wikipedia:
+
+    // avoid self-assignment
+    if( this != &inOther )  {
+        
+        // 1: allocate new memory and copy the elements
+        Type *newElements = new Type[ inOther.maxSize ];
+
+        // again, memcpy doesn't work here, because it doesn't invoke
+        // copy constructor on contained object
+        /*memcpy( newElements, inOther.elements, 
+                sizeof( Type ) * inOther.numFilledElements );
+        */
+        for( int i=0; i<inOther.numFilledElements; i++ ) {
+            newElements[i] = inOther.elements[i];
+            }
+
+
+        // 2: deallocate old memory
+        delete [] elements;
+ 
+        // 3: assign the new memory to the object
+        elements = newElements;
+        numFilledElements = inOther.numFilledElements;
+        maxSize = inOther.maxSize;
+        minSize = inOther.minSize;
+        }
+
+    // by convention, always return *this
+    return *this;
+    }
+
+
+
+
+
+
+template <class Type>
+inline int SimpleVector<Type>::size() {
+	return numFilledElements;
+	}
+
+template <class Type>
+inline Type *SimpleVector<Type>::getElement(int index) {
+	if( index < numFilledElements && index >=0 ) {
+		return &(elements[index]);
+		}
+	else return NULL;
+	}
+
+
+template <class Type>
+inline Type *SimpleVector<Type>::getElementFast(int index) {
+    return &(elements[index]);
+	}
+
+
+template <class Type>
+inline Type SimpleVector<Type>::getElementDirect(int index) {
+	if( index < numFilledElements && index >=0 ) {
+		return elements[index];
+		}
+    // use 0 instead of NULL here to avoid type warnings
+	else {
+        Type t = Type();
+        return t;
+        }
+	}
+	
+
+template <class Type>
+inline bool SimpleVector<Type>::deleteElement(int index) {
+	if( index < numFilledElements) {	// if index valid for this vector
+		
+		if( index != numFilledElements - 1)  {	
+            // this spot somewhere in middle
+		
+            
+
+            // memmove NOT okay here, because it leaves shallow copies
+            // behind that cause errors when the whole element array is 
+            // destroyed.
+
+            /*
+			// move memory towards front by one spot
+			int sizeOfElement = sizeof(Type);
+		
+			int numBytesToMove = sizeOfElement*(numFilledElements - (index+1));
+		
+			Type *destPtr = &(elements[index]);
+			Type *srcPtr = &(elements[index+1]);
+		
+			memmove( (void *)destPtr, (void *)srcPtr, 
+                    (unsigned int)numBytesToMove);
+            */
+
+
+            for( int i=index+1; i<numFilledElements; i++ ) {
+                elements[i - 1] = elements[i];
+                }
+			}
+			
+		numFilledElements--;	// one less element in vector
+		return true;
+		}
+	else {				// index not valid for this vector
+		return false;
+		}
+	}
+
+
+
+template <class Type>
+inline bool SimpleVector<Type>::deleteStartElements( int inNumToDelete ) {
+	if( inNumToDelete <= numFilledElements) {
+		
+		if( inNumToDelete != numFilledElements)  {	
+            
+
+            // memmove NOT okay here, because it leaves shallow copies
+            // behind that cause errors when the whole element array is 
+            // destroyed.
+
+            for( int i=inNumToDelete; i<numFilledElements; i++ ) {
+                elements[i - inNumToDelete] = elements[i];
+                }
+			}
+			
+		numFilledElements -= inNumToDelete;
+		return true;
+		}
+	else {				// not enough eleements in vector
+		return false;
+		}
+	}
+
+
+
+// special case implementation
+// we do this A LOT for unsigned char vectors
+// and we can use the more efficient memmove for unsigned chars
+template <>
+inline bool SimpleVector<unsigned char>::deleteStartElements( 
+    int inNumToDelete ) {
+	
+    if( inNumToDelete <= numFilledElements) {
+		
+		if( inNumToDelete != numFilledElements)  {
+
+            memmove( elements, &( elements[inNumToDelete] ),
+                     numFilledElements - inNumToDelete );
+            }
+			
+		numFilledElements -= inNumToDelete;
+		return true;
+		}
+	else {				// not enough elements in vector
+		return false;
+		}
+	}
+
+
+// same for signed char vectors
+template <>
+inline bool SimpleVector<char>::deleteStartElements( 
+    int inNumToDelete ) {
+	
+    if( inNumToDelete <= numFilledElements) {
+		
+		if( inNumToDelete != numFilledElements)  {
+
+            memmove( elements, &( elements[inNumToDelete] ),
+                     numFilledElements - inNumToDelete );
+            }
+			
+		numFilledElements -= inNumToDelete;
+		return true;
+		}
+	else {				// not enough elements in vector
+		return false;
+		}
+	}
+
+
+
+
+template <class Type>
+inline bool SimpleVector<Type>::deleteElementEqualTo( Type inElement ) {
+	int index = getElementIndex( inElement );
+	if( index != -1 ) {
+		return deleteElement( index );
+		}
+	else {
+		return false;
+		}
+	}
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::shrink( int inNewSize ) {
+    numFilledElements = inNewSize;
+    }
+
+
+template <class Type>
+inline void SimpleVector<Type>::swap( int inA, int inB ) {
+    if( inA == inB ) {
+        return;
+        }
+    
+    if( inA < numFilledElements && inA >= 0 &&
+        inB < numFilledElements && inB >= 0 ) {
+        Type temp = elements[ inA ];
+        elements[ inA ] = elements[ inB ];
+        elements[ inB ] = temp;
+        }
+    }
+
+
+
+
+template <class Type>
+inline int SimpleVector<Type>::getElementIndex( Type inElement ) {
+	// walk through vector, looking for first match.
+	for( int i=0; i<numFilledElements; i++ ) {
+		if( elements[i] == inElement ) {
+			return i;
+			}
+		}
+	
+	// no element found
+	return -1;
+	}
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::deleteAll() {
+	numFilledElements = 0;
+	if( maxSize > minSize ) {		// free memory if vector has grown
+		delete [] elements;
+		elements = new Type[minSize];	// reallocate an empty vector
+		maxSize = minSize;
+		}
+	}
+
+
+template <class Type>
+inline void SimpleVector<Type>::push_back(Type x)	{
+	if( numFilledElements < maxSize) {	// still room in vector
+		elements[numFilledElements] = x;
+		numFilledElements++;
+		}
+	else {					// need to allocate more space for vector
+
+		int newMaxSize = maxSize << 1;		// double size
+		
+        if( printExpansionMessage ) {
+            printf( "SimpleVector \"%s\" is expanding itself from %d to %d"
+                    " max elements\n", vectorName, maxSize, newMaxSize );
+            }
+
+
+        // NOTE:  memcpy does not work here, because it does not invoke
+        // copy constructors on elements.
+        // And then "delete []" below causes destructors to be invoked
+        //  on old elements, which are shallow copies of new objects.
+
+        Type *newAlloc = new Type[newMaxSize];
+        /*
+		unsigned int sizeOfElement = sizeof(Type);
+		unsigned int numBytesToMove = sizeOfElement*(numFilledElements);
+		
+
+		// move into new space
+		memcpy((void *)newAlloc, (void *) elements, numBytesToMove);
+		*/
+
+        // must use element-by-element assignment to invoke constructors
+        for( int i=0; i<numFilledElements; i++ ) {
+            newAlloc[i] = elements[i];
+            }
+        
+
+		// delete old space
+		delete [] elements;
+		
+		elements = newAlloc;
+		maxSize = newMaxSize;	
+		
+		elements[numFilledElements] = x;
+		numFilledElements++;	
+		}
+	}
+
+
+template <class Type>
+inline void SimpleVector<Type>::push_front(Type x)	{
+    push_middle( x, 0 );
+    }
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::push_middle( Type x, int inNumBefore )	{
+
+    // first push_back to reuse expansion code
+    push_back( x );
+    
+    // now shift all of the "after" elements forward
+    for( int i=numFilledElements-2; i>=inNumBefore; i-- ) {
+        elements[i+1] = elements[i];
+        }
+    
+    // finally, re-insert in middle spot
+    elements[inNumBefore] = x;
+    }
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::push_back(Type *inArray, int inLength)	{
+    
+    for( int i=0; i<inLength; i++ ) {
+        push_back( inArray[i] );
+        }
+    }
+
+
+template <class Type>
+inline void SimpleVector<Type>::push_back_other(
+    SimpleVector<Type> *inOtherVector ) {
+    
+    for( int i=0; i<inOtherVector->size(); i++ ) {
+        push_back( inOtherVector->getElementDirect( i ) );
+        }
+    }
+
+
+
+template <class Type>
+inline Type *SimpleVector<Type>::getElementArray() {
+    Type *newAlloc = new Type[ numFilledElements ];
+
+    // shallow copy not good enough!
+    /*
+    unsigned int sizeOfElement = sizeof( Type );
+    unsigned int numBytesToCopy = sizeOfElement * numFilledElements;
+    
+    // copy into new space
+    //memcpy( (void *)newAlloc, (void *)elements, numBytesToCopy );
+    */
+
+    // use assignment to ensure that constructors are invoked on element copies
+    for( int i=0; i<numFilledElements; i++ ) {
+        newAlloc[i] = elements[i];
+        }
+
+    return newAlloc;
+    }
+
+
+
+template <>
+inline char *SimpleVector<char>::getElementString() {
+    char *newAlloc = new char[ numFilledElements + 1 ];
+    unsigned int sizeOfElement = sizeof( char );
+    unsigned int numBytesToCopy = sizeOfElement * numFilledElements;
+		
+    // memcpy fine here, since shallow copy good enough for chars
+    // copy into new space
+    memcpy( (void *)newAlloc, (void *)elements, numBytesToCopy );
+
+    newAlloc[ numFilledElements ] = '\0';
+    
+    return newAlloc;
+    }
+
+
+template <>
+inline void SimpleVector<char>::appendElementString( const char *inString ) {
+    unsigned int numChars = strlen( inString );
+    appendArray( (char*)inString, (int)numChars );
+    }
+
+
+
+template <>
+inline void SimpleVector<char>::setElementString( const char *inString ) {
+    deleteAll();
+
+    appendElementString( inString );
+    }
+
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::appendArray( Type *inArray, int inSize ) {
+    // slow but correct
+    
+    for( int i=0; i<inSize; i++ ) {
+        push_back( inArray[i] );
+        }
+    }
+
+
+
+template <class Type>
+inline void SimpleVector<Type>::setPrintMessageOnVectorExpansion( 
+    char inPrintMessage, const char *inVectorName) {
+    
+    printExpansionMessage = inPrintMessage;
+    vectorName = inVectorName;
+    }
+
+
+
+
+template <>
+inline char SimpleVector<char*>::deallocateStringElement( int inIndex ) {
+    if( inIndex < numFilledElements ) {
+        delete [] elements[ inIndex ];
+        deleteElement( inIndex );
+        return true;
+        }
+    else {
+        return false;
+        }
+    }
+
+
+
+
+template <>
+inline void SimpleVector<char*>::deallocateStringElements() {
+    for( int i=0; i<numFilledElements; i++ ) {
+		delete [] elements[i];
+        }
+
+    deleteAll();
+    }
+
+
+
+// These came from:
+//#include "minorGems/util/stringUtils.h"
+
+
+char *stringDuplicate( const char *inString ) {
+    
+    char *returnBuffer = new char[ strlen( inString ) + 1 ];
+
+    strcpy( returnBuffer, inString );
+
+    return returnBuffer;    
+    }
+
+
+
+char **split( const char *inString, const char *inSeparator, 
+              int *outNumParts ) {
+    SimpleVector<char *> *parts = new SimpleVector<char *>();
+    
+    char *workingString = stringDuplicate( inString );
+    char *workingStart = workingString;
+
+    unsigned int separatorLength = strlen( inSeparator );
+
+    char *foundSeparator = strstr( workingString, inSeparator );
+
+    while( foundSeparator != NULL ) {
+        // terminate at separator        
+        foundSeparator[0] = '\0';
+        parts->push_back( stringDuplicate( workingString ) );
+
+        // skip separator
+        workingString = &( foundSeparator[ separatorLength ] );
+        foundSeparator = strstr( workingString, inSeparator );
+        }
+
+    // add the remaining part, even if it is the empty string
+    parts->push_back( stringDuplicate( workingString ) );
+
+                      
+    delete [] workingStart;
+
+    *outNumParts = parts->size();
+    char **returnArray = parts->getElementArray();
+    
+    delete parts;
+
+    return returnArray;
+    }
+
+
+
+// visual studio doesn't have va_copy
+// suggested fix here:
+// https://stackoverflow.com/questions/558223/va-copy-porting-to-visual-c
+#ifndef va_copy
+    #define va_copy( dest, src ) ( dest = src )
+#endif
+
+
+
+char *vautoSprintf( const char* inFormatString, va_list inArgList ) {
+    
+    va_list argListCopyA;
+    
+    va_copy( argListCopyA, inArgList );
+    
+
+    unsigned int bufferSize = 50;
+
+
+    char *buffer = new char[ bufferSize ];
+    
+    int stringLength =
+        vsnprintf( buffer, bufferSize, inFormatString, inArgList );
+
+
+    if( stringLength != -1 ) {
+        // follows C99 standard...
+        // stringLength is the length of the string that would have been
+        // written if the buffer was big enough
+
+        //  not room for string and terminating \0 in bufferSize bytes
+        if( (unsigned int)stringLength >= bufferSize ) {
+
+            // need to reprint with a bigger buffer
+            delete [] buffer;
+
+            bufferSize = (unsigned int)( stringLength + 1 );
+
+            buffer = new char[ bufferSize ];
+
+            // can simply use vsprintf now
+            vsprintf( buffer, inFormatString, argListCopyA );
+            
+            va_end( argListCopyA );
+            return buffer;
+            }
+        else {
+            // buffer was big enough
+
+            // trim the buffer to fit the string
+            char *returnString = stringDuplicate( buffer );
+            delete [] buffer;
+            
+            va_end( argListCopyA );
+            return returnString;
+            }
+        }
+    else {
+        // follows old ANSI standard
+        // -1 means the buffer was too small
+
+        // Note that some buggy non-C99 vsnprintf implementations
+        // (notably MinGW)
+        // do not return -1 if stringLength equals bufferSize (in other words,
+        // if there is not enough room for the trailing \0).
+
+        // Thus, we need to check for both
+        //   (A)  stringLength == -1
+        //   (B)  stringLength == bufferSize
+        // below.
+        
+        // keep doubling buffer size until it's big enough
+        while( stringLength == -1 || 
+               (unsigned int)stringLength == bufferSize ) {
+
+            delete [] buffer;
+
+            if( (unsigned int)stringLength == bufferSize ) {
+                // only occurs if vsnprintf implementation is buggy
+
+                // might as well use the information, though
+                // (instead of doubling the buffer size again)
+                bufferSize = bufferSize + 1;
+                }
+            else {
+                // double buffer size again
+                bufferSize = 2 * bufferSize;
+                }
+
+            buffer = new char[ bufferSize ];
+    
+            va_list argListCopyB;
+            va_copy( argListCopyB, argListCopyA );
+            
+            stringLength =
+                vsnprintf( buffer, bufferSize, inFormatString, argListCopyB );
+
+            va_end( argListCopyB );
+            }
+
+        // trim the buffer to fit the string
+        char *returnString = stringDuplicate( buffer );
+        delete [] buffer;
+
+        va_end( argListCopyA );
+        return returnString;
+        }
+    }
+
+
+
+char *autoSprintf( const char* inFormatString, ... ) {
+    va_list argList;
+    va_start( argList, inFormatString );
+    
+    char *result = vautoSprintf( inFormatString, argList );
+    
+    va_end( argList );
+    
+    return result;
+    }
+
+
+// end dependency code
+// **************************************
+
+
+
+
 
 
 static void usage() {
