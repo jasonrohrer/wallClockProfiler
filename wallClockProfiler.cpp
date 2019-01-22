@@ -948,6 +948,7 @@ FILE *logFile = NULL;
 static void log( const char *inHeader, char *inBody ) {
     if( logFile != NULL ) {
         fprintf( logFile, "%s:\n%s\n\n\n", inHeader, inBody );
+        fflush( logFile );
         }
     }
 
@@ -1341,14 +1342,8 @@ int main( int inNumArgs, char **inArgs ) {
         //ask kernel to deliver SIGTERM in case the parent dies
         prctl( PR_SET_PDEATHSIG, SIGTERM );
         
-        if( inNumArgs == 4 || inNumArgs == 5 ) {
-            // attatch to PID
-            execlp( "gdb", "gdb", "-nx", "--interpreter=mi", 
-                    inArgs[2], inArgs[3], NULL );
-            }
-        else {
-            execlp( "gdb", "gdb", "-nx", "--interpreter=mi", inArgs[2], NULL );
-            }
+        execlp( "gdb", "gdb", "-nx", "--interpreter=mi", inArgs[2], NULL );
+        
         exit( 0 );
         }
     
@@ -1371,33 +1366,13 @@ int main( int inNumArgs, char **inArgs ) {
 
     char *gdbInitResponse = getGDBResponse();
     
-    if( inNumArgs == 3 &&
-        strstr( gdbInitResponse, "No such file or directory." ) != NULL ) {
+    if( strstr( gdbInitResponse, "No such file or directory." ) != NULL ) {
         delete [] gdbInitResponse;
         printf( "GDB failed to start program '%s'\n", inArgs[2] );
         fclose( logFile );
         logFile = NULL;
         exit( 0 );
         }
-    else if( inNumArgs >= 4 &&
-             strstr( gdbInitResponse, "ptrace: No such process." ) != NULL ) {
-        delete [] gdbInitResponse;
-        printf( "GDB could not find process:  %s\n", inArgs[3] );
-        fclose( logFile );
-        logFile = NULL;
-        exit( 0 );
-        }
-    else if( inNumArgs >= 4 &&
-             strstr( gdbInitResponse, 
-                     "ptrace: Operation not permitted." ) != NULL ) {
-        delete [] gdbInitResponse;
-        printf( "GDB could not attach to process %s "
-                "(maybe you need to be root?)\n", inArgs[3] );
-        fclose( logFile );
-        logFile = NULL;
-        exit( 0 );
-        }
-
     delete [] gdbInitResponse;
     
 
@@ -1409,6 +1384,39 @@ int main( int inNumArgs, char **inArgs ) {
         sendCommand( "run > wcOut.txt" );
         }
     else {
+        sendCommand( "-gdb-set target-async 1" );
+        skipGDBResponse();
+
+        printf( "\n\nAttaching to PID %s\n", inArgs[3] );
+
+        char *command = autoSprintf( "-target-attach %s\n", inArgs[3] );
+
+        sendCommand( command ); 
+
+        delete [] command;
+        
+        
+        char *gdbAttachResponse = getGDBResponse();
+        
+        if( strstr( gdbAttachResponse, "ptrace: No such process." ) != NULL ) {
+            delete [] gdbAttachResponse;
+            printf( "GDB could not find process:  %s\n", inArgs[3] );
+            fclose( logFile );
+            logFile = NULL;
+            exit( 0 );
+            }
+        else if( strstr( gdbAttachResponse, 
+                         "ptrace: Operation not permitted." ) != NULL ) {
+            delete [] gdbAttachResponse;
+            printf( "GDB could not attach to process %s "
+                    "(maybe you need to be root?)\n", inArgs[3] );
+            fclose( logFile );
+            logFile = NULL;
+            exit( 0 );
+            }
+        
+        delete [] gdbAttachResponse;
+
         printf( "\n\nResuming attached gdb program with '-exec-continue'\n" );
         
         sendCommand( "-exec-continue" );
@@ -1492,9 +1500,16 @@ int main( int inNumArgs, char **inArgs ) {
         usleep( usPerSample );
     
         // interrupt
-        log( "Sending SIGINT to target process", inArgs[2] );
+        if( inNumArgs == 3 ) {
+            // we ran our program with run above to redirect output
+            // thus -exec-interrupt won't work
+            log( "Sending SIGINT to target process", inArgs[2] );
         
-        kill( pid, SIGINT );
+            kill( pid, SIGINT );
+            }
+        else {
+            sendCommand( "-exec-interrupt" );
+            }
         
         skipGDBResponse();
         
@@ -1520,8 +1535,16 @@ int main( int inNumArgs, char **inArgs ) {
     else {
         printf( "Detatching from program\n" );
         
-        log( "Sending SIGINT to target process", inArgs[2] );
-        kill( pid, SIGINT );
+        if( inNumArgs == 3 ) {
+            // we ran our program with run above to redirect output
+            // thus -exec-interrupt won't work
+            log( "Sending SIGINT to target process", inArgs[2] );
+        
+            kill( pid, SIGINT );
+            }
+        else {
+            sendCommand( "-exec-interrupt" );
+            }
         skipGDBResponse();
 
         sendCommand( "-target-detach" );        
