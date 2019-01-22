@@ -29,3 +29,15 @@ It can either run your target program directly, or attach to an existing process
 For example, if your server process is experiencing heavy load right now, you can attach to it for the next ten seconds, grab a few hundred stack samples, then see a nice little text report telling you exactly where your server is spending its time right now.
 
 Overhead scales with your chosen sampling rate.  If you're looking for a big problem, a relatively low sampling rate (and thus a low overhead) will be sufficient to catch it. 
+
+## Examples
+
+Run ./myProgram and sample the stack 20 times per second until it exits.
+```
+./wallClockProfiler 20 ./myProgram
+```
+
+Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds.
+```
+./wallClockProfiler 20 ./myProgram 3042 60
+```
