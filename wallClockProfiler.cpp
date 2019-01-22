@@ -1520,7 +1520,12 @@ int main( int inNumArgs, char **inArgs ) {
     else {
         printf( "Detatching from program\n" );
         kill( pid, SIGINT );
-        sendCommand( "-gdb-exit" );
+        
+        skipGDBResponse();
+        
+        sendCommand( "-target-detach" );
+        
+        skipGDBResponse();
         }
     
     printf( "%d stack samples taken\n", numSamples );
