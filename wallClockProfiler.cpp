@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/prctl.h>
 
@@ -969,8 +970,11 @@ static int fillBufferWithResponse() {
                 }
             }
         else if( numRead == -1 ) {
-            printf( "Error in reading from GDB pipe\n" );
-            return readSoFar;
+            if( !( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
+                char *errorString = strerror( errno );
+                printf( "Error in reading from GDB pipe: %s\n", errorString );
+                return readSoFar;
+                }
             }
         }
     }
@@ -1283,7 +1287,7 @@ int main( int inNumArgs, char **inArgs ) {
 
     if( inNumArgs == 3 ) {
         printf( "\n\nStarting gdb program with 'run', "
-                "redirecting program output to wcOut.tx\n" );
+                "redirecting program output to wcOut.txt\n" );
         
         sendCommand( "run > wcOut.txt" );
         }
