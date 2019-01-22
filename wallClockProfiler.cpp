@@ -1019,6 +1019,21 @@ static void skipGDBResponse() {
 
 
 
+static char *getGDBResponse() {
+    int numRead = fillBufferWithResponse();
+    checkProgramExited();
+    
+    if( numRead == 0 ) {
+        return stringDuplicate( "" );
+        }
+    else {
+        return stringDuplicate( readBuff );
+        }
+    }
+
+
+
+
 
 typedef struct StackFrame{
         void *address;
@@ -1283,8 +1298,32 @@ int main( int inNumArgs, char **inArgs ) {
 
     fcntl( inPipe, F_SETFL, O_NONBLOCK );
 
-    skipGDBResponse();
+    char *gdbInitResponse = getGDBResponse();
     
+    if( inNumArgs == 3 &&
+        strstr( gdbInitResponse, "No such file or directory." ) != NULL ) {
+        delete [] gdbInitResponse;
+        printf( "GDB failed to start program '%s'\n", inArgs[2] );
+        exit( 0 );
+        }
+    else if( inNumArgs >= 4 &&
+             strstr( gdbInitResponse, "ptrace: No such process." ) != NULL ) {
+        delete [] gdbInitResponse;
+        printf( "GDB could not find process:  %s\n", inArgs[3] );
+        exit( 0 );
+        }
+    else if( inNumArgs >= 4 &&
+             strstr( gdbInitResponse, 
+                     "ptrace: Operation not permitted." ) != NULL ) {
+        delete [] gdbInitResponse;
+        printf( "GDB could not attach to process %s "
+                "(maybe you need to be root?)\n", inArgs[3] );
+        exit( 0 );
+        }
+
+    delete [] gdbInitResponse;
+    
+
 
     if( inNumArgs == 3 ) {
         printf( "\n\nStarting gdb program with 'run', "
