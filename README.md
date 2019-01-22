@@ -87,6 +87,10 @@ Report:
 ```
 You can see that 99% of the samples occurred down inside `__GI-fseek`.  No existing profiler showed me anything like this.
 
+And how do I know whether this profile is accurate?  Maybe its just as inaccurate as the others (below), just in a different way.
+
+Here's where the rubber meets the road in terms of program execution time.  By commenting out the fseek calls (and their corresponding fgetc calls) that were found above, the execution time for the test program drops from 14 seconds down to 0.25 seconds.  In other words, these I/O calls are indeed responsible for 99% of the execution time.
+
 ## Sample output from other profilers
 
 ### gprof
@@ -268,6 +272,43 @@ Total: 1456 samples
 Here at least we see that 92% of our runtime was... down inside some mystery function.  But that mystery function was called from somewhere, right?  Even outputing to a full visual callgraph viewer (using the `--callgrind` output option for pprof) still shows that 92% of our execution time was spent in a function with no callers.
 
 Some sources suggest setting CPUPROFILE_REALTIME=1 to enable wall-clock based sampling, but I found that it made no difference in the resulting profile.
+
+### oprofile
+From calling:
+```
+operf ./testProf
+opreport --symbols
+```
+Output:
+```
+samples  %        image name               symbol name
+180437   89.2334  no-vmlinux               /no-vmlinux
+5312      2.6270  libc-2.19.so             _IO_file_seekoff@@GLIBC_2.1
+4554      2.2521  [vdso] (tgid:6710 range:0xb7761000-0xb7761fff) [vdso] (tgid:6710 range:0xb7761000-0xb7761fff)
+1961      0.9698  testProf                 getRandomBoundedInt(int, int)
+1804      0.8922  libc-2.19.so             fseek
+1457      0.7205  libc-2.19.so             fgetc
+1030      0.5094  libc-2.19.so             random_r
+978       0.4837  libc-2.19.so             _IO_seekoff_unlocked
+842       0.4164  libc-2.19.so             llseek
+712       0.3521  libc-2.19.so             random
+687       0.3397  libc-2.19.so             __x86.get_pc_thunk.bx
+568       0.2809  testProf                 readRandFileValue(_IO_FILE*)
+547       0.2705  libc-2.19.so             _IO_file_seek
+428       0.2117  testProf                 main
+330       0.1632  libc-2.19.so             _IO_file_read
+250       0.1236  libc-2.19.so             rand
+232       0.1147  libc-2.19.so             __read_nocancel
+56        0.0277  libc-2.19.so             read
+8         0.0040  libc-2.19.so             __uflow
+5         0.0025  libc-2.19.so             _IO_switch_to_get_mode
+3         0.0015  libc-2.19.so             _IO_default_uflow
+2        9.9e-04  ld-2.19.so               _dl_lookup_symbol_x
+2        9.9e-04  libc-2.19.so             _IO_file_underflow@@GLIBC_2.1
+1        4.9e-04  ld-2.19.so               dl_main
+1        4.9e-04  libc-2.19.so             _dl_addr
+1        4.9e-04  libc-2.19.so             malloc_init_state
+```
 
 ### Vallgrind callgrind
 From calling:
