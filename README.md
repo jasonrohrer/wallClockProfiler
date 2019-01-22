@@ -23,6 +23,7 @@ And besides GDB and standard Linux system includes, it has no dependencies of an
 ```
 g++ -o wallClockProfiler wallClockProfiler.cpp 
 ```
+You don't need to rebuild or relink your program to profile it (though building your program with debugging symbols would probably be helpful).
 
 It can either run your target program directly, or attach to an existing process.  It can sample however many times per second you want it to, and it can detach automatically after a certain number of seconds.
 
@@ -159,6 +160,78 @@ Samples: 59K of event 'cycles', Event count (approx.): 3556233224
 +   0.75%  testProf  [kernel.kallsyms]  [k] kmap_atomic_prot
 +   0.73%  testProf  [kernel.kallsyms]  [k] file_read_actor
 +   0.71%  testProf  libc-2.19.so       [.] fseek
+```
+Enabling callgraphis in the profile and output like so:
+```
+perf record --call-graph fp ./testProf
+perf report --call-graph --stdio
+```
+Gives us a bit more information in the profile, but it's still not that useful, and still doesn't pinpoint fseek:
+```
+# Overhead   Command      Shared Object                                      Sym
+# ........  ........  .................  .......................................
+#
+    46.05%  testProf  [kernel.kallsyms]  [k] __copy_to_user_ll                  
+            |
+            --- __copy_to_user_ll
+               |          
+               |--97.14%-- file_read_actor
+               |          generic_file_aio_read
+               |          do_sync_read
+               |          vfs_read
+               |          sys_read
+               |          sysenter_after_call
+               |          0xb77b2428
+               |          |          
+               |           --100.00%-- main
+               |                     __libc_start_main
+               |          
+               |--2.48%-- _copy_to_user
+               |          sys_llseek
+               |          sysenter_after_call
+               |          0xb77b2428
+                --0.39%-- [...]
+
+     9.13%  testProf  [kernel.kallsyms]  [k] find_get_page                      
+            |
+            --- find_get_page
+               |          
+               |--99.26%-- generic_file_aio_read
+               |          do_sync_read
+               |          vfs_read
+               |          sys_read
+               |          sysenter_after_call
+               |          0xb77b2428
+               |          |          
+               |           --100.00%-- main
+               |                     __libc_start_main
+               |          
+                --0.74%-- do_sync_read
+                          vfs_read
+                          sys_read
+                          sysenter_after_call
+                          0xb77b2428
+
+     5.24%  testProf  [kernel.kallsyms]  [k] radix_tree_lookup_element          
+            |
+            --- radix_tree_lookup_element
+               |          
+               |--99.08%-- radix_tree_lookup_slot
+               |          find_get_page
+               |          generic_file_aio_read
+               |          do_sync_read
+               |          vfs_read
+               |          sys_read
+               |          sysenter_after_call
+               |          0xb77b2428
+               |          
+                --0.92%-- find_get_page
+                          generic_file_aio_read
+                          do_sync_read
+                          vfs_read
+                          sys_read
+                          sysenter_after_call
+                          0xb77b2428
 ```
 Next, gperftools.  From calling:
 
