@@ -32,12 +32,12 @@ Overhead scales with your chosen sampling rate.  If you're looking for a big pro
 
 ## Examples
 
-Run ./myProgram and sample the stack 20 times per second until it exits.
+Run ./myProgram and sample the stack 20 times per second until it exits:
 ```
 ./wallClockProfiler 20 ./myProgram
 ```
 
-Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds.
+Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds:
 ```
 ./wallClockProfiler 20 ./myProgram 3042 60
 ```
