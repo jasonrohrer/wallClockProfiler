@@ -968,6 +968,10 @@ static int fillBufferWithResponse() {
                 return readSoFar;
                 }
             }
+        else if( numRead == -1 ) {
+            printf( "Error in reading from GDB pipe\n" );
+            return readSoFar;
+            }
         }
     }
 
