@@ -948,7 +948,15 @@ static void sendCommand( const char *inCommand ) {
     }
 
 
-char readBuff[4096];
+// 65 KiB buffer
+// if GDB issues a single response that is longer than this
+// we will only return or processes the tail end of it.
+#define READ_BUFF_SIZE 65536
+char readBuff[READ_BUFF_SIZE];
+
+#define BUFF_TAIL_SIZE 32768
+char tailBuff[ BUFF_TAIL_SIZE ];
+
 
 char programExited = false;
 
@@ -956,8 +964,26 @@ char programExited = false;
 static int fillBufferWithResponse() {
     int readSoFar = 0;
     while( true ) {
+        
+        if( readSoFar >= READ_BUFF_SIZE - 1 ) {
+            // we've filled up our read buffer
+            
+            // save the last bit of it, but discard the rest
+            
+            // copy end, including last \0
+            memcpy( tailBuff, 
+                    &( readBuff[ readSoFar + 1 - BUFF_TAIL_SIZE ] ),
+                    BUFF_TAIL_SIZE );
+            
+            memcpy( readBuff, tailBuff, BUFF_TAIL_SIZE );
+
+            readSoFar = BUFF_TAIL_SIZE - 1;
+            }
+        
+
         int numRead = 
-            read( inPipe, &( readBuff[readSoFar] ), 4095 - readSoFar );
+            read( inPipe, &( readBuff[readSoFar] ), 
+                  ( READ_BUFF_SIZE - 1 ) - readSoFar );
         
         if( numRead > 0 ) {
             
