@@ -168,7 +168,7 @@ Enabling callgraphis in the profile and output like so:
 perf record --call-graph fp ./testProf
 perf report --call-graph --stdio
 ```
-Gives us a bit more information in the profile, but it's still not that useful, and still doesn't pinpoint fseek:
+gives us a bit more information in the profile, but it's still not that useful, and still doesn't pinpoint fseek:
 ```
 # Overhead   Command      Shared Object                                      Sym
 # ........  ........  .................  .......................................
@@ -272,6 +272,8 @@ Some sources suggest setting CPUPROFILE_REALTIME=1 to enable wall-clock based sa
 ### Vallgrind callgrind
 From calling:
 ```
+valgrind --tool=callgrind --collect-systime=yes ./testProf
+callgrind_annotate callgrind.out.6218
 ```
 Output:
 ```
