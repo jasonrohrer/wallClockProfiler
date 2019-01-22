@@ -942,7 +942,20 @@ int outPipe;
 char sendBuff[1024];
 
 
+FILE *logFile = NULL;
+
+
+static void log( const char *inHeader, char *inBody ) {
+    if( logFile != NULL ) {
+        fprintf( logFile, "%s:\n%s\n\n\n", inHeader, inBody );
+        }
+    }
+
+
+
 static void sendCommand( const char *inCommand ) {
+    log( "Sending command to GDB", (char*)inCommand );
+
     sprintf( sendBuff, "%s\n", inCommand );
     write( outPipe, sendBuff, strlen( sendBuff ) );
     }
@@ -954,6 +967,10 @@ static void sendCommand( const char *inCommand ) {
 #define READ_BUFF_SIZE 65536
 char readBuff[READ_BUFF_SIZE];
 
+char anythingInReadBuff = false;
+char numReadAttempts = 0;
+
+
 #define BUFF_TAIL_SIZE 32768
 char tailBuff[ BUFF_TAIL_SIZE ];
 
@@ -963,6 +980,9 @@ char programExited = false;
 
 static int fillBufferWithResponse() {
     int readSoFar = 0;
+    anythingInReadBuff = false;
+    numReadAttempts = 0;
+    
     while( true ) {
         
         if( readSoFar >= READ_BUFF_SIZE - 1 ) {
@@ -980,12 +1000,14 @@ static int fillBufferWithResponse() {
             readSoFar = BUFF_TAIL_SIZE - 1;
             }
         
-
+        numReadAttempts++;
+        
         int numRead = 
             read( inPipe, &( readBuff[readSoFar] ), 
                   ( READ_BUFF_SIZE - 1 ) - readSoFar );
         
         if( numRead > 0 ) {
+            anythingInReadBuff = true;
             
             readSoFar += numRead;
             
@@ -1002,6 +1024,10 @@ static int fillBufferWithResponse() {
                 printf( "Error in reading from GDB pipe: %s\n", errorString );
                 return readSoFar;
                 }
+            else {
+                // sleep to avoid CPU starving pipe sender
+                usleep( 200 );
+                }
             }
         }
     }
@@ -1010,8 +1036,12 @@ static int fillBufferWithResponse() {
 
 
 static void checkProgramExited() {
-    if( strstr( readBuff, "exited-normally" ) != NULL ) {
-        programExited = true;
+    if( anythingInReadBuff ) {
+        if( strstr( readBuff, "exited-normally" ) != NULL ) {
+            programExited = true;
+            
+            log( "GDB response contains 'exited-normally'", readBuff );
+            }
         }
     }
 
@@ -1040,6 +1070,11 @@ static void printGDBResponseToFile( FILE *inFile ) {
 
 static void skipGDBResponse() {
     int numRead = fillBufferWithResponse();
+
+    if( anythingInReadBuff ) {
+        log( "Skipping GDB response", readBuff );
+        }
+    
     checkProgramExited();
     }
 
@@ -1049,12 +1084,17 @@ static char *getGDBResponse() {
     int numRead = fillBufferWithResponse();
     checkProgramExited();
     
+    char *val;
     if( numRead == 0 ) {
-        return stringDuplicate( "" );
+        val = stringDuplicate( "" );
         }
     else {
-        return stringDuplicate( readBuff );
+        val = stringDuplicate( readBuff );
         }
+    
+    log( "getGDBResponse returned", val );
+    
+    return val;
     }
 
 
@@ -1191,6 +1231,7 @@ static void logGDBStackResponse() {
         return;
         }
     
+    log( "logGDBStackResponse sees", readBuff );
 
     checkProgramExited();
         
@@ -1313,6 +1354,10 @@ int main( int inNumArgs, char **inArgs ) {
     
     // else parent
     printf( "Forked GDB child on PID=%d\n", childPID );
+
+    logFile = fopen( "wcGDBLog.txt", "w" );
+    
+    printf( "Logging GDB commands and responses to wcGDBLog.txt\n" );
     
     
     //close unused pipe ends
@@ -1330,12 +1375,16 @@ int main( int inNumArgs, char **inArgs ) {
         strstr( gdbInitResponse, "No such file or directory." ) != NULL ) {
         delete [] gdbInitResponse;
         printf( "GDB failed to start program '%s'\n", inArgs[2] );
+        fclose( logFile );
+        logFile = NULL;
         exit( 0 );
         }
     else if( inNumArgs >= 4 &&
              strstr( gdbInitResponse, "ptrace: No such process." ) != NULL ) {
         delete [] gdbInitResponse;
         printf( "GDB could not find process:  %s\n", inArgs[3] );
+        fclose( logFile );
+        logFile = NULL;
         exit( 0 );
         }
     else if( inNumArgs >= 4 &&
@@ -1344,6 +1393,8 @@ int main( int inNumArgs, char **inArgs ) {
         delete [] gdbInitResponse;
         printf( "GDB could not attach to process %s "
                 "(maybe you need to be root?)\n", inArgs[3] );
+        fclose( logFile );
+        logFile = NULL;
         exit( 0 );
         }
 
@@ -1387,6 +1438,8 @@ int main( int inNumArgs, char **inArgs ) {
     
     if( pidPipe == NULL ) {
         printf( "Failed to open pipe to pidof to get debugged app pid\n" );
+        fclose( logFile );
+        logFile = NULL;
         return 1;
         }
 
@@ -1400,6 +1453,8 @@ int main( int inNumArgs, char **inArgs ) {
 
     if( numRead != 1 ) {
         printf( "Failed to read PID of debugged app\n" );
+        fclose( logFile );
+        logFile = NULL;
         return 1;
         }
     
@@ -1437,6 +1492,8 @@ int main( int inNumArgs, char **inArgs ) {
         usleep( usPerSample );
     
         // interrupt
+        log( "Sending SIGINT to target process", inArgs[2] );
+        
         kill( pid, SIGINT );
         
         skipGDBResponse();
@@ -1517,8 +1574,9 @@ int main( int inNumArgs, char **inArgs ) {
         freeStack( &s );
         }
     
-
-
+    fclose( logFile );
+    logFile = NULL;
+        
     
     return 0;
     }
