@@ -88,7 +88,7 @@ You can see that 99% of the samples occurred down inside `__GI-fseek`.  No exist
 
 ## Sample output from other profilers
 
-From calling:
+First, perf.  From calling:
 ```
 perf record -g ./testProf
 perf report
@@ -119,3 +119,33 @@ Samples: 60K of event 'cycles', Event count (approx.): 348306023
 +   0.76%  testProf  [kernel.kallsyms]  [k] kmap_atomic_prot
 +   0.72%  testProf  [kernel.kallsyms]  [k] _cond_resched
 ```
+Next, gperftools.  From calling:
+
+```
+env CPUPROFILE=prof.out ./testProf
+pprof --text ./testProf ./prof.out
+```
+Output:
+```
+Total: 1458 samples
+    1341  92.0%  92.0%     1341  92.0% 0xb77d7428
+      34   2.3%  94.3%       34   2.3% _IO_new_file_seekoff
+      21   1.4%  95.7%       25   1.7% RandomSource32::getRandomBoundedInt
+      11   0.8%  96.5%       11   0.8% __GI_fseek
+       9   0.6%  97.1%        9   0.6% __llseek
+       8   0.5%  97.7%        8   0.5% _IO_getc
+       7   0.5%  98.1%        7   0.5% _IO_acquire_lock_fct
+       6   0.4%  98.6%        6   0.4% 0xb77d7429
+       4   0.3%  98.8%        4   0.3% JenkinsRandomSource::genRand32
+       4   0.3%  99.1%       56   3.8% main
+       3   0.2%  99.3%        3   0.2% __GI__IO_file_seek
+       2   0.1%  99.5%        2   0.1% _IO_seekoff_unlocked
+       2   0.1%  99.6%        2   0.1% __GI__IO_file_read
+       2   0.1%  99.7%        2   0.1% __read_nocancel
+       2   0.1%  99.9%        2   0.1% __x86.get_pc_thunk.bx
+       1   0.1%  99.9%        1   0.1% 0xb77d741d
+       1   0.1% 100.0%       26   1.8% readRandFileValue
+       0   0.0% 100.0%       56   3.8% __libc_start_main
+       0   0.0% 100.0%        1   0.1% _init
+```
+Here at least we see that 92% of our runtime was... down inside some mystery function.  But that mystery function was called from somewhere, right?  Even outputing to a full visual callgraph viewer (using the `--callgrind` output option for pprof) still shows that 92% of our execution time was spent in a function with no callers.
