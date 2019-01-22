@@ -87,7 +87,9 @@ You can see that 99% of the samples occurred down inside `__GI-fseek`.  No exist
 
 And how do I know whether this profile is accurate?  Maybe it's just as inaccurate as the others (below), just in a different way...
 
-But here's where the rubber meets the road in terms of program execution time:  By commenting out the fseek calls (and their corresponding fgetc calls) that were found above, the execution time for the test program drops from 14 seconds down to 0.25 seconds.  In other words, these I/O calls are indeed responsible for 99% of the execution time.
+But here's where the rubber meets the road in terms of program execution time:  By commenting out the fseek calls (and their corresponding fgetc calls) that were found above, the execution time for the test program drops from 14.6 seconds down to 0.25 seconds.  In other words, these I/O calls are indeed responsible for 99% of the execution time.
+
+Even removing only the fseek calls (while still keeping the fgetc read calls---just reading the file sequentially 1 million times instead of randomly 1 million times), reduces the runtime from 14.6 seconds down to 0.36 seconds.  Thus, 98% of our execution time is spent on those random seeks, not even on the actual file reads.  Reading the data from the file isn't slow.  But jumping around in a huge file is slow because of cache misses.  And this profile alerts us to that fact.
 
 ## Sample output from other profilers
 
