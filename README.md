@@ -7,7 +7,7 @@ As far as I can tell, after way too many hours of researching and testing every 
 
 Not perf.  Not gperftools.  Not OProfile.  Obviously not gprof.  None of the usual suspects.
 
-Most of them were telling me that the majority of the running time was spent in rand (which was used to pick the random offset to fseek to).  The truth was, this was only about 5% of the simple program's wall-clock runtime.  If I want to speed this program up, optimizing rand is going to be a waste of time.
+Most of them were telling me that the majority of the running time was spent in rand (which was used to pick the random offset to fseek to).  The truth was, this was only about 1% of the simple program's wall-clock runtime.  If I want to speed this program up, optimizing rand is going to be a waste of time.
 
 Valgrind's callgrind can do it, but it makes the program 50x slower (or something like that), so it's useless in production environments (for example, profiling a live server that has real users connecting to it).
 
@@ -41,3 +41,47 @@ Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 ti
 ```
 ./wallClockProfiler 20 ./myProgram 3042 60
 ```
+
+## Sample Output
+From profiling the aforementioned test program that does a lot of random fseeks:
+```
+Sampling stack while program runs...
+Sampling 20 times per second, for 50000 usec between samples
+Program exited normally
+313 stack samples taken
+3 unique stacks sampled
+
+
+
+Report:
+
+81.789% =====================================
+        1: __kernel_vsyscall   (at :-1)
+        2: __read_nocancel   (at ../sysdeps/unix/syscall-template.S:81)
+        3: _IO_new_file_seekoff   (at fileops.c:1079)
+        4: _IO_seekoff_unlocked   (at ioseekoff.c:69)
+        5: __GI_fseek   (at fseek.c:39)
+        6: readRandFileValue   (at testProf.cpp:15)
+        7: main   (at testProf.cpp:41)
+
+
+17.572% =====================================
+        1: __kernel_vsyscall   (at :-1)
+        2: __llseek   (at ../sysdeps/unix/sysv/linux/llseek.c:33)
+        3: __GI__IO_file_seek   (at fileops.c:1214)
+        4: _IO_new_file_seekoff   (at fileops.c:1072)
+        5: _IO_seekoff_unlocked   (at ioseekoff.c:69)
+        6: __GI_fseek   (at fseek.c:39)
+        7: readRandFileValue   (at testProf.cpp:15)
+        8: main   (at testProf.cpp:41)
+
+
+ 0.319% =====================================
+        1: __GI__dl_debug_state   (at dl-debug.c:74)
+        2: dl_main   (at rtld.c:2305)
+        3: _dl_sysdep_start   (at ../elf/dl-sysdep.c:249)
+        4: _dl_start_final   (at rtld.c:332)
+        5: _dl_start   (at rtld.c:558)
+        6: _start   (at :-1)
+```
+You can see that 99% of the samples occurred down inside `__GI-fseek`.  No existing profiler showed me anything like this.
