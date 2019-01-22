@@ -3,7 +3,7 @@ A simple I/O bound test program.
 Build like this:
 
 g++ -o makeTestFile makeTestFile.cpp
-g++ -o testProf testProf.cpp
+g++ -g -o testProf testProf.cpp
 
 
 First run:
