@@ -361,8 +361,6 @@ file_read [/lib/i386-linux-gnu/libc-2.19.so]
    39,999,154 19,999,578  50,323  ???:_dl_sysinfo_int80 [/lib/i386-linux-gnu/ld-
 2.19.so]
 ```
-Yes!  fseek is correctly at the top of the list.  But the program ran 11x slower (160 seconds vs 14 seconds).  Also, it's still overestimating the impact of the rand calls in the overall runtime.
-
-For example, if we comment out the calls to fseek and fgetc, while leaving all the rand calls in place, the runtime drops from 14 seconds down to 0.25 seconds.  I.e., around 1% of the runtime is actually spent in rand, but the the Kcachegrind graphical visuallizer output (not shown here) pegs rand at 14% of the runtime, while only giving fseek 64%, instead of the 99% of the runtime that it actually occupies.
+Yes!  fseek is correctly at the top of the list.  But the program ran 11x slower (160 seconds vs 14 seconds).  Also, it's still overestimating the impact of the rand calls in the overall runtime.  The Kcachegrind graphical visuallizer output (not shown here) pegs rand at 14% of the runtime, while only giving fseek 64%, instead of the 98% of the runtime that it actually occupies.
 
 But at least valgrind finds fseek as the hotspot.
