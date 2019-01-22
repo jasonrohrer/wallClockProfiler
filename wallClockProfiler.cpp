@@ -1495,9 +1495,10 @@ int main( int inNumArgs, char **inArgs ) {
     
     for( int i=0; i<sortedStacks.size(); i++ ) {
         Stack s = sortedStacks.getElementDirect( i );
-        printf( "%6.3f%% =====================================\n"
+        printf( "%6.3f%% ===================================== (%d samples)\n"
                 "      %3d: %s   (at %s:%d)\n", 
                 100 * s.sampleCount / (float )numSamples,
+                s.sampleCount,
                 1,
                 s.frames.getElement( 0 )->funcName, 
                 s.frames.getElement( 0 )->fileName, 
