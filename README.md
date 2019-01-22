@@ -122,30 +122,32 @@ Samples: 59K of event 'cycles', Event count (approx.): 3556233224
 Next, gperftools.  From calling:
 
 ```
-env CPUPROFILE=prof.out ./testProf
+LD_PRELOAD=/usr/local/lib/libprofiler.so CPUPROFILE=prof.out ./testProf
 pprof --text ./testProf ./prof.out
 ```
 Output:
 ```
-Total: 1458 samples
-    1341  92.0%  92.0%     1341  92.0% 0xb77d7428
-      34   2.3%  94.3%       34   2.3% _IO_new_file_seekoff
-      21   1.4%  95.7%       25   1.7% RandomSource32::getRandomBoundedInt
-      11   0.8%  96.5%       11   0.8% __GI_fseek
-       9   0.6%  97.1%        9   0.6% __llseek
-       8   0.5%  97.7%        8   0.5% _IO_getc
-       7   0.5%  98.1%        7   0.5% _IO_acquire_lock_fct
-       6   0.4%  98.6%        6   0.4% 0xb77d7429
-       4   0.3%  98.8%        4   0.3% JenkinsRandomSource::genRand32
-       4   0.3%  99.1%       56   3.8% main
-       3   0.2%  99.3%        3   0.2% __GI__IO_file_seek
-       2   0.1%  99.5%        2   0.1% _IO_seekoff_unlocked
-       2   0.1%  99.6%        2   0.1% __GI__IO_file_read
+Total: 1456 samples
+    1339  92.0%  92.0%     1339  92.0% 0xb7737428
+      30   2.1%  94.0%       30   2.1% _IO_new_file_seekoff
+      15   1.0%  95.1%       15   1.0% _IO_getc
+      14   1.0%  96.0%       14   1.0% getRandomBoundedInt
+       8   0.5%  96.6%        8   0.5% __random_r
+       7   0.5%  97.0%        7   0.5% _IO_acquire_lock_fct
+       7   0.5%  97.5%        7   0.5% _IO_seekoff_unlocked
+       6   0.4%  97.9%        6   0.4% 0xb7737429
+       6   0.4%  98.4%        6   0.4% __GI_fseek
+       4   0.3%  98.6%        4   0.3% __GI__IO_file_seek
+       4   0.3%  98.9%        4   0.3% __llseek
+       4   0.3%  99.2%       25   1.7% readRandFileValue
+       3   0.2%  99.4%        3   0.2% __random
+       3   0.2%  99.6%       57   3.9% main
        2   0.1%  99.7%        2   0.1% __read_nocancel
-       2   0.1%  99.9%        2   0.1% __x86.get_pc_thunk.bx
-       1   0.1%  99.9%        1   0.1% 0xb77d741d
-       1   0.1% 100.0%       26   1.8% readRandFileValue
-       0   0.0% 100.0%       56   3.8% __libc_start_main
-       0   0.0% 100.0%        1   0.1% _init
+       2   0.1%  99.9%        3   0.2% _init
+       1   0.1%  99.9%        1   0.1% 0xb773741d
+       1   0.1% 100.0%        1   0.1% rand
+       0   0.0% 100.0%       57   3.9% __libc_start_main
 ```
 Here at least we see that 92% of our runtime was... down inside some mystery function.  But that mystery function was called from somewhere, right?  Even outputing to a full visual callgraph viewer (using the `--callgrind` output option for pprof) still shows that 92% of our execution time was spent in a function with no callers.
+
+Some sources suggest setting CPUPROFILE_REALTIME=1 to enable wall-clock based sampling, but I found that it made no difference in the resulting profile.
