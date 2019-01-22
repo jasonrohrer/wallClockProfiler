@@ -95,29 +95,29 @@ perf report
 ```
 Output:
 ```
-Samples: 60K of event 'cycles', Event count (approx.): 348306023                
-+  46.67%  testProf  [kernel.kallsyms]  [k] __copy_to_user_ll
-+   8.90%  testProf  [kernel.kallsyms]  [k] find_get_page
-+   6.33%  testProf  [kernel.kallsyms]  [k] radix_tree_lookup_element
-+   4.42%  testProf  [kernel.kallsyms]  [k] sysenter_past_esp
-+   3.62%  testProf  [kernel.kallsyms]  [k] native_flush_tlb_single
-+   3.45%  testProf  [kernel.kallsyms]  [k] generic_file_aio_read
-+   2.11%  testProf  [vdso]             [.] 0x00000428
-+   2.07%  testProf  libc-2.19.so       [.] _IO_file_seekoff@@GLIBC_2.1
-+   1.32%  testProf  testProf           [.] RandomSource32::getRandomBoundedInt(
-+   1.14%  testProf  [kernel.kallsyms]  [k] ext4_llseek
-+   1.02%  testProf  [kernel.kallsyms]  [k] sys_llseek
-+   0.99%  testProf  [kernel.kallsyms]  [k] fget_light
-+   0.98%  testProf  [kernel.kallsyms]  [k] do_sync_read
-+   0.93%  testProf  libc-2.19.so       [.] __libc_lseek64
-+   0.86%  testProf  [kernel.kallsyms]  [k] _copy_to_user
-+   0.85%  testProf  [kernel.kallsyms]  [k] current_kernel_time
-+   0.84%  testProf  [kernel.kallsyms]  [k] common_file_perm
-+   0.82%  testProf  [kernel.kallsyms]  [k] vfs_read
-+   0.78%  testProf  [kernel.kallsyms]  [k] touch_atime
-+   0.78%  testProf  [kernel.kallsyms]  [k] fsnotify
-+   0.76%  testProf  [kernel.kallsyms]  [k] kmap_atomic_prot
-+   0.72%  testProf  [kernel.kallsyms]  [k] _cond_resched
+Samples: 59K of event 'cycles', Event count (approx.): 3556233224               
++  47.12%  testProf  [kernel.kallsyms]  [k] __copy_to_user_ll
++   9.35%  testProf  [kernel.kallsyms]  [k] find_get_page
++   5.12%  testProf  [kernel.kallsyms]  [k] radix_tree_lookup_element
++   3.95%  testProf  [kernel.kallsyms]  [k] native_flush_tlb_single
++   3.51%  testProf  [kernel.kallsyms]  [k] sysenter_past_esp
++   3.36%  testProf  [kernel.kallsyms]  [k] generic_file_aio_read
++   2.37%  testProf  [vdso]             [.] 0x00000428
++   2.13%  testProf  libc-2.19.so       [.] _IO_file_seekoff@@GLIBC_2.1
++   1.25%  testProf  [kernel.kallsyms]  [k] ext4_llseek
++   1.24%  testProf  [kernel.kallsyms]  [k] fget_light
++   1.09%  testProf  [kernel.kallsyms]  [k] sys_llseek
++   1.08%  testProf  [kernel.kallsyms]  [k] _copy_to_user
++   1.05%  testProf  libc-2.19.so       [.] _IO_getc
++   1.02%  testProf  [kernel.kallsyms]  [k] common_file_perm
++   0.99%  testProf  [kernel.kallsyms]  [k] do_sync_read
++   0.98%  testProf  testProf           [.] getRandomBoundedInt(int, int)
++   0.91%  testProf  [kernel.kallsyms]  [k] vfs_read
++   0.88%  testProf  [kernel.kallsyms]  [k] current_kernel_time
++   0.77%  testProf  [kernel.kallsyms]  [k] fsnotify
++   0.75%  testProf  [kernel.kallsyms]  [k] kmap_atomic_prot
++   0.73%  testProf  [kernel.kallsyms]  [k] file_read_actor
++   0.71%  testProf  libc-2.19.so       [.] fseek
 ```
 Next, gperftools.  From calling:
 
