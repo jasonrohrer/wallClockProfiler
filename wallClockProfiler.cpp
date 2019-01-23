@@ -979,7 +979,7 @@ char tailBuff[ BUFF_TAIL_SIZE ];
 char programExited = false;
 
 
-static int fillBufferWithResponse( const char *inWaitingFor = "(gdb)" ) {
+static int fillBufferWithResponse( const char *inWaitingFor = NULL ) {
     int readSoFar = 0;
     anythingInReadBuff = false;
     numReadAttempts = 0;
@@ -1014,12 +1014,16 @@ static int fillBufferWithResponse( const char *inWaitingFor = "(gdb)" ) {
             
             readBuff[ readSoFar ] = '\0';
         
-            if( strstr( readBuff, inWaitingFor ) != NULL ) {
+            if( strstr( readBuff, "(gdb)" ) != NULL &&
+                ( inWaitingFor == NULL ||
+                  strstr( readBuff, inWaitingFor ) != NULL ) ) {
                 // read full response
                 return readSoFar;
                 }
             else if( readSoFar > 10 &&
-                     strstr( readBuff, "thread-exited" ) != NULL ) {
+                     strstr( readBuff, "thread-group-exited" ) != NULL ) {
+                // stop waiting for full response, program has exited
+                programExited = true;
                 return readSoFar;
                 }
             }
@@ -1085,7 +1089,7 @@ static void skipGDBResponse() {
 
 
 static void waitForGDBInterruptResponse() {
-    int numRead = fillBufferWithResponse( "SIGINT" );
+    int numRead = fillBufferWithResponse( "*stopped," );
     
     if( anythingInReadBuff ) {
         log( "Waiting for interrupt response", readBuff );
