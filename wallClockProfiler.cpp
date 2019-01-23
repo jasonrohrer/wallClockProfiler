@@ -1376,6 +1376,12 @@ int main( int inNumArgs, char **inArgs ) {
     delete [] gdbInitResponse;
     
 
+    
+    sendCommand( "handle SIGPIPE nostop noprint pass" );
+    
+    skipGDBResponse();
+    
+
 
     if( inNumArgs == 3 ) {
         printf( "\n\nStarting gdb program with 'run', "
