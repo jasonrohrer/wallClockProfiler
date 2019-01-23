@@ -1672,8 +1672,10 @@ int main( int inNumArgs, char **inArgs ) {
                 maxInd = i;
                 }
             }  
-        sortedStacks.push_back( maxStack );
-        stackLog.deleteElement( maxInd );
+        if( maxInd >= 0 ) {
+            sortedStacks.push_back( maxStack );
+            stackLog.deleteElement( maxInd );
+            }
         }
 
 
@@ -1694,9 +1696,12 @@ int main( int inNumArgs, char **inArgs ) {
                     maxInd = i;
                     }
                 }  
-            sortedRootStacks[r].push_back( maxStack );
-            stackRootLog[r].deleteElement( maxInd );
+            if( maxInd >= 0 ) {        
+                sortedRootStacks[r].push_back( maxStack );
+                stackRootLog[r].deleteElement( maxInd );
+                }
             }
+        
         }
     
     
