@@ -1018,6 +1018,10 @@ static int fillBufferWithResponse( const char *inWaitingFor = "(gdb)" ) {
                 // read full response
                 return readSoFar;
                 }
+            else if( readSoFar > 10 &&
+                     strstr( readBuff, "thread-exited" ) != NULL ) {
+                return readSoFar;
+                }
             }
         else if( numRead == -1 ) {
             if( !( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
@@ -1081,7 +1085,7 @@ static void skipGDBResponse() {
 
 
 static void waitForGDBInterruptResponse() {
-    int numRead = fillBufferWithResponse( "stopped,reason=" );
+    int numRead = fillBufferWithResponse( "SIGINT" );
     
     if( anythingInReadBuff ) {
         log( "Waiting for interrupt response", readBuff );
@@ -1131,6 +1135,31 @@ typedef struct Stack {
 
 
 SimpleVector<Stack> stackLog;
+
+
+// these are for counting repeated common stack roots
+// they do NOT need to be freed (they cointain poiters to strings
+// in the main stack log)
+#define NUM_ROOT_STACKS_TO_TRACK 15
+SimpleVector<Stack> stackRootLog[ NUM_ROOT_STACKS_TO_TRACK ];
+
+
+
+
+// does not make sense to call this unless depth less than full stack depth
+Stack getRoot( Stack inFullStack, int inDepth ) {
+    Stack newStack;
+    newStack.sampleCount = 1;
+    int numToSkip = inFullStack.frames.size() - inDepth;
+    
+    for( int i=numToSkip; i<inFullStack.frames.size(); i++ ) {
+        newStack.frames.push_back( inFullStack.frames.getElementDirect( i ) );
+        }
+    
+    return newStack;
+    }
+
+
 
 
 
@@ -1293,12 +1322,15 @@ static void logGDBStackResponse() {
 
     
     char match = false;
+    Stack insertedStack = thisStack;
+    
     for( int i=0; i<stackLog.size(); i++ ) {
         Stack *inOld = stackLog.getElement( i );
         
         if( stackCompare( inOld, &thisStack ) ) {
             match = true;
             inOld->sampleCount++;
+            insertedStack = *inOld;
             break;
             }
         }
@@ -1309,6 +1341,56 @@ static void logGDBStackResponse() {
     else {
         stackLog.push_back( thisStack );
         }
+
+    // now look at roots of inserted stack
+    for( int i=1; 
+         i< insertedStack.frames.size() && 
+             i < NUM_ROOT_STACKS_TO_TRACK; 
+         i++ ) {
+        
+        Stack rootStack = getRoot( insertedStack, i );
+        
+        match = false;
+        
+        for( int r=0; r<stackRootLog[i].size(); r++ ) {
+            Stack *inOld = stackRootLog[i].getElement( r );
+        
+            if( stackCompare( inOld, &rootStack ) ) {
+                match = true;
+                inOld->sampleCount++;
+                break;
+                }
+            }
+    
+        if( !match ) {
+            stackRootLog[i].push_back( rootStack );
+            }
+        }
+    }
+
+
+
+void printStack( Stack inStack, int inNumTotalSamples ) {
+    Stack s = inStack;
+    
+    printf( "%6.3f%% ===================================== (%d samples)\n"
+            "      %3d: %s   (at %s:%d)\n", 
+            100 * s.sampleCount / (float )inNumTotalSamples,
+            s.sampleCount,
+            1,
+            s.frames.getElement( 0 )->funcName, 
+            s.frames.getElement( 0 )->fileName, 
+            s.frames.getElement( 0 )->lineNum );
+    // print stack for context below
+    for( int j=1; j<s.frames.size(); j++ ) {
+        StackFrame f = s.frames.getElementDirect( j );
+        printf( "      %3d: %s   (at %s:%d)\n", 
+                j + 1,
+                f.funcName, 
+                f.fileName, 
+                f.lineNum );
+        }
+    printf( "\n\n" );
     }
 
 
@@ -1578,7 +1660,7 @@ int main( int inNumArgs, char **inArgs ) {
     SimpleVector<Stack> sortedStacks;
     
     while( stackLog.size() > 0 ) {
-        int max = 0;
+        int max = 1;
         Stack maxStack;
         int maxInd = -1;
         for( int i=0; i<stackLog.size(); i++ ) {
@@ -1593,30 +1675,54 @@ int main( int inNumArgs, char **inArgs ) {
         sortedStacks.push_back( maxStack );
         stackLog.deleteElement( maxInd );
         }
+
+
+    SimpleVector<Stack> sortedRootStacks[ NUM_ROOT_STACKS_TO_TRACK ];
+    
+    for( int r=1; r<NUM_ROOT_STACKS_TO_TRACK; r++ ) {
+        
+        while( stackRootLog[r].size() > 0 ) {
+            int max = 1;
+            Stack maxStack;
+            int maxInd = -1;
+            for( int i=0; i<stackRootLog[r].size(); i++ ) {
+                Stack s = stackRootLog[r].getElementDirect( i );
+            
+                if( s.sampleCount > max ) {
+                    maxStack = s;
+                    max = s.sampleCount;
+                    maxInd = i;
+                    }
+                }  
+            sortedRootStacks[r].push_back( maxStack );
+            stackRootLog[r].deleteElement( maxInd );
+            }
+        }
+    
     
     printf( "\n\n\nReport:\n\n" );
+
+    for( int r=1; r<NUM_ROOT_STACKS_TO_TRACK; r++ ) {
+        if( sortedRootStacks[r].size() > 0 ) {
+            
+            printf( "\n\n\nStack roots of depth [%d] "
+                    "with more than one sample:\n\n", r );
+            
+            for( int i=0; i<sortedRootStacks[r].size(); i++ ) {
+                Stack s = sortedRootStacks[r].getElementDirect( i );
+                printStack( s, numSamples );
+                }
+            }
+        }
+    
+    
+    printf( "\n\n\nFull stacks "
+            "with more than one sample:\n\n" );
     
     for( int i=0; i<sortedStacks.size(); i++ ) {
         Stack s = sortedStacks.getElementDirect( i );
-        printf( "%6.3f%% ===================================== (%d samples)\n"
-                "      %3d: %s   (at %s:%d)\n", 
-                100 * s.sampleCount / (float )numSamples,
-                s.sampleCount,
-                1,
-                s.frames.getElement( 0 )->funcName, 
-                s.frames.getElement( 0 )->fileName, 
-                s.frames.getElement( 0 )->lineNum );
-        // print stack for context below
-        for( int j=1; j<s.frames.size(); j++ ) {
-            StackFrame f = s.frames.getElementDirect( j );
-            printf( "      %3d: %s   (at %s:%d)\n", 
-                    j + 1,
-                    f.funcName, 
-                    f.fileName, 
-                    f.lineNum );
-            }
-        printf( "\n\n" );
-
+        printStack( s, numSamples );
+        
         freeStack( &s );
         }
     
