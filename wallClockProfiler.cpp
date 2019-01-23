@@ -1676,6 +1676,9 @@ int main( int inNumArgs, char **inArgs ) {
             sortedStacks.push_back( maxStack );
             stackLog.deleteElement( maxInd );
             }
+        else {
+            break;
+            }
         }
 
 
@@ -1699,6 +1702,9 @@ int main( int inNumArgs, char **inArgs ) {
             if( maxInd >= 0 ) {        
                 sortedRootStacks[r].push_back( maxStack );
                 stackRootLog[r].deleteElement( maxInd );
+                }
+            else {
+                break;
                 }
             }
         
@@ -1728,6 +1734,12 @@ int main( int inNumArgs, char **inArgs ) {
         Stack s = sortedStacks.getElementDirect( i );
         printStack( s, numSamples );
         
+        freeStack( &s );
+        }
+
+    // stacks that had only one sample
+    for( int i=0; i<stackLog.size(); i++ ) {
+        Stack s = stackLog.getElementDirect( i );
         freeStack( &s );
         }
     
