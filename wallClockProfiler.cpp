@@ -1716,7 +1716,7 @@ int main( int inNumArgs, char **inArgs ) {
     for( int r=1; r<NUM_ROOT_STACKS_TO_TRACK; r++ ) {
         if( sortedRootStacks[r].size() > 0 ) {
             
-            printf( "\n\n\nStack roots of depth [%d] "
+            printf( "\n\n\nPartial stacks of depth [%d] "
                     "with more than one sample:\n\n", r );
             
             for( int i=0; i<sortedRootStacks[r].size(); i++ ) {
