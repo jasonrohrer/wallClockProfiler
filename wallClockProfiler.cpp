@@ -979,7 +979,7 @@ char tailBuff[ BUFF_TAIL_SIZE ];
 char programExited = false;
 
 
-static int fillBufferWithResponse() {
+static int fillBufferWithResponse( const char *inWaitingFor = "(gdb)" ) {
     int readSoFar = 0;
     anythingInReadBuff = false;
     numReadAttempts = 0;
@@ -1014,7 +1014,7 @@ static int fillBufferWithResponse() {
             
             readBuff[ readSoFar ] = '\0';
         
-            if( strstr( readBuff, "(gdb)" ) != NULL ) {
+            if( strstr( readBuff, inWaitingFor ) != NULL ) {
                 // read full response
                 return readSoFar;
                 }
@@ -1078,6 +1078,18 @@ static void skipGDBResponse() {
     
     checkProgramExited();
     }
+
+
+static void waitForGDBInterruptResponse() {
+    int numRead = fillBufferWithResponse( "stopped,reason=" );
+    
+    if( anythingInReadBuff ) {
+        log( "Waiting for interrupt response", readBuff );
+        }
+    
+    checkProgramExited();
+    }
+
 
 
 
@@ -1517,7 +1529,7 @@ int main( int inNumArgs, char **inArgs ) {
             sendCommand( "-exec-interrupt" );
             }
         
-        skipGDBResponse();
+        waitForGDBInterruptResponse();
         
 
         if( !programExited ) {
@@ -1551,7 +1563,7 @@ int main( int inNumArgs, char **inArgs ) {
         else {
             sendCommand( "-exec-interrupt" );
             }
-        skipGDBResponse();
+        waitForGDBInterruptResponse();
 
         sendCommand( "-target-detach" );        
         skipGDBResponse();
