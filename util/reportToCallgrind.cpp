@@ -143,7 +143,7 @@ int main( int inNumArgs, char **inArgs ) {
     
 
     const char *fullStackHeader =
-        "Full stacks with more than one sample:";
+        "Full stacks with at least one sample:";
 
     char *fullStackPos = 
         strstr( report, fullStackHeader );

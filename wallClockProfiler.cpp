@@ -1770,7 +1770,7 @@ int main( int inNumArgs, char **inArgs ) {
     SimpleVector<Stack> sortedStacks;
     
     while( stackLog.size() > 0 ) {
-        int max = 1;
+        int max = 0;
         Stack maxStack;
         int maxInd = -1;
         for( int i=0; i<stackLog.size(); i++ ) {
@@ -1853,7 +1853,7 @@ int main( int inNumArgs, char **inArgs ) {
     
     
     printf( "\n\n\nFull stacks "
-            "with more than one sample:\n\n" );
+            "with at least one sample:\n\n" );
     
     for( int i=0; i<sortedStacks.size(); i++ ) {
         Stack s = sortedStacks.getElementDirect( i );
