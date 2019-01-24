@@ -977,6 +977,7 @@ char tailBuff[ BUFF_TAIL_SIZE ];
 
 
 char programExited = false;
+char detatchJustSent = false;
 
 
 static int fillBufferWithResponse( const char *inWaitingFor = NULL ) {
@@ -1021,6 +1022,7 @@ static int fillBufferWithResponse( const char *inWaitingFor = NULL ) {
                 return readSoFar;
                 }
             else if( readSoFar > 10 &&
+                     ! detatchJustSent &&
                      strstr( readBuff, "thread-group-exited" ) != NULL ) {
                 // stop waiting for full response, program has exited
                 programExited = true;
@@ -1425,7 +1427,7 @@ void printStack( Stack inStack, int inNumTotalSamples ) {
             if( lineEnd != NULL ) {
                 lineEnd[0] ='\0';
                 }
-            printf( "            |   %s\n", lineStart );
+            printf( "            %d:|   %s\n", sf->lineNum, lineStart );
             }
         
         delete [] marker;
@@ -1699,8 +1701,12 @@ int main( int inNumArgs, char **inArgs ) {
             }
         waitForGDBInterruptResponse();
 
+        
+        detatchJustSent = true;
         sendCommand( "-target-detach" );        
         skipGDBResponse();
+
+        detatchJustSent = false;
         }
     
     printf( "%d stack samples taken\n", numSamples );
