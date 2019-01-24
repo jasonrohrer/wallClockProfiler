@@ -1135,6 +1135,13 @@ typedef struct Stack {
         int sampleCount;
     } Stack;
 
+
+
+typedef struct FunctionRecord {
+        char *funcName;
+        int sampleCount;
+    } FunctionRecord;
+    
     
 
 
@@ -1377,8 +1384,8 @@ static void logGDBStackResponse() {
 void printStack( Stack inStack, int inNumTotalSamples ) {
     Stack s = inStack;
     
-    printf( "%6.3f%% ===================================== (%d samples)\n"
-            "      %3d: %s   (at %s:%d)\n", 
+    printf( "%7.3f%% ===================================== (%d samples)\n"
+            "       %3d: %s   (at %s:%d)\n", 
             100 * s.sampleCount / (float )inNumTotalSamples,
             s.sampleCount,
             1,
@@ -1388,7 +1395,7 @@ void printStack( Stack inStack, int inNumTotalSamples ) {
     // print stack for context below
     for( int j=1; j<s.frames.size(); j++ ) {
         StackFrame f = s.frames.getElementDirect( j );
-        printf( "      %3d: %s   (at %s:%d)\n", 
+        printf( "       %3d: %s   (at %s:%d)\n", 
                 j + 1,
                 f.funcName, 
                 f.fileName, 
@@ -1658,6 +1665,58 @@ int main( int inNumArgs, char **inArgs ) {
     printf( "%d stack samples taken\n", numSamples );
 
     printf( "%d unique stacks sampled\n", stackLog.size() );
+
+
+    SimpleVector<FunctionRecord> functions;
+    
+    for( int i=0; i<stackLog.size(); i++ ) {
+        Stack *s = stackLog.getElement( i );
+        
+        int sampleCount = s->sampleCount;
+        
+        for( int f=0; f< s->frames.size(); f++ ) {
+            char *funcName = s->frames.getElement( f )->funcName;
+            
+            char found = false;
+            for( int r=0; r<functions.size(); r++ ) {
+                if( strcmp( functions.getElement( r )->funcName,
+                            funcName ) == 0 ) {
+                    // hit
+                    found = true;
+                    functions.getElement( r )->sampleCount += sampleCount;
+                    break;
+                    }
+                }
+            if( !found ) {
+                FunctionRecord newFunc = { funcName, sampleCount };
+                functions.push_back( newFunc );
+                }
+            }
+        }
+    
+    SimpleVector<FunctionRecord> sortedFunctions;
+    while( functions.size() > 0 ) {
+        int max = 1;
+        FunctionRecord maxFunc;
+        int maxInd = -1;
+        for( int i=0; i<functions.size(); i++ ) {
+            FunctionRecord r = functions.getElementDirect( i );
+            
+            if( r.sampleCount > max ) {
+                maxFunc = r;
+                max = r.sampleCount;
+                maxInd = i;
+                }
+            }  
+        if( maxInd >= 0 ) {
+            sortedFunctions.push_back( maxFunc );
+            functions.deleteElement( maxInd );
+            }
+        else {
+            break;
+            }
+        }
+    
     
     
     // simple insertion sort
@@ -1716,6 +1775,21 @@ int main( int inNumArgs, char **inArgs ) {
     
     
     printf( "\n\n\nReport:\n\n" );
+
+    printf( "\n\n\nFunctions "
+            "with more than one sample:\n\n" );
+
+    for( int i=0; i<sortedFunctions.size(); i++ ) {
+        FunctionRecord f = sortedFunctions.getElementDirect( i );
+        
+        printf( "%7.3f%% ===================================== (%d samples)\n"
+                "         %s\n\n\n",
+                100 * f.sampleCount / (float )numSamples,
+                f.sampleCount,
+                f.funcName );
+        }
+                
+
 
     for( int r=1; r<NUM_ROOT_STACKS_TO_TRACK; r++ ) {
         if( sortedRootStacks[r].size() > 0 ) {
