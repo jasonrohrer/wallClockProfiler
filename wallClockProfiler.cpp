@@ -1392,6 +1392,47 @@ void printStack( Stack inStack, int inNumTotalSamples ) {
             s.frames.getElement( 0 )->funcName, 
             s.frames.getElement( 0 )->fileName, 
             s.frames.getElement( 0 )->lineNum );
+
+    StackFrame *sf = inStack.frames.getElement( 0 );
+    
+    if( sf->lineNum > 0 ) {
+        
+        char *listCommand = autoSprintf( "list %s:%d,%d",
+                                         sf->fileName,
+                                         sf->lineNum,
+                                         sf->lineNum );
+        sendCommand( listCommand );
+        
+        delete [] listCommand;
+        
+        char *response = getGDBResponse();
+        
+        char *marker = autoSprintf( "~\"%d\\t", sf->lineNum );
+        
+        char *markerSpot = strstr( response, marker );
+        
+        // if name present in line, it's a not-found error
+        if( markerSpot != NULL &&
+            strstr( markerSpot, sf->fileName ) == NULL ) {
+            char *lineStart = &( markerSpot[ strlen( marker ) ] );
+            
+            // trim spaces from start
+            while( lineStart[0] == ' ' ) {
+                lineStart = &( lineStart[1] );
+                }
+            
+            char *lineEnd = strstr( lineStart, "\\n" );
+            if( lineEnd != NULL ) {
+                lineEnd[0] ='\0';
+                }
+            printf( "            |   %s\n", lineStart );
+            }
+        
+        delete [] marker;
+        delete [] response;
+        }
+    
+
     // print stack for context below
     for( int j=1; j<s.frames.size(); j++ ) {
         StackFrame f = s.frames.getElementDirect( j );
