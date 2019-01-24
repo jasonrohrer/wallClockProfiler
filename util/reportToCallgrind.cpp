@@ -25,19 +25,84 @@ char *stringDuplicate( char *inString ) {
     return newString;
     }
 
-                            
 
-typedef struct FunctionLine {
+typedef struct FunctionLine FunctionLine;
+
+typedef struct FunctionCall {
+        FunctionLine *callee;
+        int sampleCount;
+    } FunctionCall;
+
+    
+
+#define MAX_CALLEES 16                            
+
+struct FunctionLine {
         char *fileName;
         char *functionName;
         int lineNum;
         int sampleCount;
-    } FunctionLine;
+        
+        int numCallees;
+        FunctionCall callees[ MAX_CALLEES ];
+    };
 
 
 int maxNumLines = 0;
 int filledNumLines = 0;
 FunctionLine *functionLines = NULL;
+
+
+
+void updateCallee( FunctionLine *inLine, FunctionLine *inCallee, 
+                   int inNumSamples ) {
+    char found = false;
+    // check for existing
+    for( int i=0; i<inLine->numCallees; i++ ) {
+        FunctionCall *c = &( inLine->callees[ i ] );
+        
+        if( strcmp( c->callee->functionName,
+                    inCallee->functionName ) == 0 ) {
+            c->sampleCount += inNumSamples;
+            
+            // note that FunctionLines track the position in the
+            // target function where the sample was hit,
+            // not the location of the start of the function
+            
+            // but when tracking callees, we actually want to
+            // record the position in the source of the function itself
+            
+            // this is not actually listed in our stack traces
+            // try to get as close as possible by taking the lowest
+            // line number from inside the function body
+            
+            if( inCallee->lineNum < c->callee->lineNum ) {
+                // replace
+                c->callee = inCallee;
+                }
+
+            found = true;
+            break;
+            }
+        }
+
+    if( found ) {
+        return;    
+        }
+    
+    // add new one
+    if( inLine->numCallees >= MAX_CALLEES ) {
+        printf( "Out of space in function callee list for line:  %s:%s:%d\n",
+               inLine->fileName,
+               inLine->functionName,
+               inLine->lineNum );
+        return;
+        }
+    FunctionCall newCall = { inCallee, inNumSamples };
+    
+    inLine->callees[ inLine->numCallees ] = newCall;
+    inLine->numCallees++;
+    }
 
     
 
@@ -142,6 +207,8 @@ int main( int inNumArgs, char **inArgs ) {
             int numRead = 4;
             
             int lastStackPos = 0;
+            FunctionLine *lastStackFunctionLine = NULL;
+            
             while( numRead == 4 ) {
 
                 int stackPos;
@@ -182,6 +249,8 @@ int main( int inNumArgs, char **inArgs ) {
 
                         char found = false;
                         
+                        FunctionLine *thisStackFunctionLine = NULL;
+                        
                         for( int f=0; f<filledNumLines; f++ ) {
                             FunctionLine *fl = 
                                 &( functionLines[ f ] );
@@ -190,6 +259,7 @@ int main( int inNumArgs, char **inArgs ) {
                                 && strcmp( fl->functionName, funName ) == 0 ) {
                                 fl->sampleCount += numSamples;
                                 found = true;
+                                thisStackFunctionLine = fl;
                                 break;
                                 }
                             }
@@ -198,12 +268,25 @@ int main( int inNumArgs, char **inArgs ) {
                                 stringDuplicate( fileName ),
                                 stringDuplicate( funName ),
                                 lineNum,
-                                numSamples };
+                                numSamples,
+                                0 }; // no callees so far
                         
                             functionLines[ filledNumLines ] =
                                 newLine;
+                            thisStackFunctionLine = 
+                                &( functionLines[ filledNumLines ] );
                             filledNumLines++;
                             }
+
+                        if( lastStackFunctionLine != NULL ) {
+                            // this line calls another line
+                            
+                            updateCallee( thisStackFunctionLine,
+                                          lastStackFunctionLine,
+                                          numSamples );
+                            }
+                        
+                        lastStackFunctionLine = thisStackFunctionLine;
 
                         if( stackPos == 1 ) {
                             int curPos = ftell( reportFile );
@@ -246,13 +329,40 @@ int main( int inNumArgs, char **inArgs ) {
     printf( "%d unique function lines found\n", filledNumLines );
     
     for( int i=0; i<filledNumLines; i++ ) {
+        int selfSampleCount = functionLines[i].sampleCount;
+        
+        // subtract sample count from function calls made from this line
+        for( int c=0; c<functionLines[i].numCallees; c++ ) {
+            selfSampleCount -= functionLines[i].callees[c].sampleCount;
+            }
+
         fprintf( callgrindFile, "fl=%s\n", functionLines[i].fileName );
         fprintf( callgrindFile, "fn=%s\n", functionLines[i].functionName );
-        fprintf( callgrindFile, "%d %d\n\n\n", 
+        fprintf( callgrindFile, "%d %d\n", 
                  functionLines[i].lineNum,
-                 functionLines[i].sampleCount );
+                 selfSampleCount );
         
-
+        for( int c=0; c<functionLines[i].numCallees; c++ ) {
+            /*
+            cfi=file2.c
+            cfn=func2
+            calls=3 20
+            16 400
+            */
+            fprintf( callgrindFile, "cfi=%s\n", 
+                     functionLines[i].callees[c].callee->fileName );
+            fprintf( callgrindFile, "cfn=%s\n", 
+                     functionLines[i].callees[c].callee->functionName );
+            fprintf( callgrindFile, "calls=1 %d\n", 
+                     functionLines[i].callees[c].callee->lineNum );
+            fprintf( callgrindFile, "%d %d\n", 
+                     functionLines[i].lineNum,
+                     functionLines[i].callees[c].sampleCount );
+            }
+        fprintf( callgrindFile, "\n\n" );
+        }
+    
+    for( int i=0; i<filledNumLines; i++ ) {
         delete [] functionLines[i].fileName;
         delete [] functionLines[i].functionName;
         }
