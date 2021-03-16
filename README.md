@@ -38,6 +38,11 @@ Run ./myProgram and sample the stack 20 times per second until it exits:
 ./wallClockProfiler 20 ./myProgram
 ```
 
+Run ./myProgram with arguments and sample the stack 20 times per second until it exits:
+```
+./wallClockProfiler 20 "./myProgram arg1 arg2"
+```
+
 Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds:
 ```
 ./wallClockProfiler 20 ./myProgram 3042 60

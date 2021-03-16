@@ -1468,13 +1468,29 @@ int main( int inNumArgs, char **inArgs ) {
     
     pipe( readPipe );
     pipe( writePipe );
+
+
+    char *progName = stringDuplicate( inArgs[2] );
+    char *progArgs = stringDuplicate( "" );
     
+    char *spacePos = strstr( progName, " " );
+    
+    if( spacePos != NULL ) {
+        delete [] progArgs;
+        progArgs = stringDuplicate( &( spacePos[1] ) );
+        // cut off name at start of args
+        spacePos[0] = '\0';
+        }
     
 
     int childPID = fork();
     
     if( childPID == -1 ) {
         printf( "Failed to fork\n" );
+        
+        delete [] progName;
+        delete [] progArgs;
+        
         return 1;
         }
     else if( childPID == 0 ) {
@@ -1489,8 +1505,11 @@ int main( int inNumArgs, char **inArgs ) {
         
         //ask kernel to deliver SIGTERM in case the parent dies
         prctl( PR_SET_PDEATHSIG, SIGTERM );
+
+        execlp( "gdb", "gdb", "-nx", "--interpreter=mi", progName, NULL );
         
-        execlp( "gdb", "gdb", "-nx", "--interpreter=mi", inArgs[2], NULL );
+        delete [] progName;
+        delete [] progArgs;
         
         exit( 0 );
         }
@@ -1516,9 +1535,11 @@ int main( int inNumArgs, char **inArgs ) {
     
     if( strstr( gdbInitResponse, "No such file or directory." ) != NULL ) {
         delete [] gdbInitResponse;
-        printf( "GDB failed to start program '%s'\n", inArgs[2] );
+        printf( "GDB failed to start program '%s'\n", progName );
         fclose( logFile );
         logFile = NULL;
+        delete [] progName;
+        delete [] progArgs;
         exit( 0 );
         }
     delete [] gdbInitResponse;
@@ -1532,10 +1553,14 @@ int main( int inNumArgs, char **inArgs ) {
 
 
     if( inNumArgs == 3 ) {
-        printf( "\n\nStarting gdb program with 'run', "
-                "redirecting program output to wcOut.txt\n" );
+        char *runCommand = autoSprintf( "run %s > wcOut.txt", progArgs );
+
+        printf( "\n\nStarting gdb program with '%s', "
+                "redirecting program output to wcOut.txt\n",
+                runCommand );
         
-        sendCommand( "run > wcOut.txt" );
+        sendCommand( runCommand );
+        delete [] runCommand;
         }
     else {
         sendCommand( "-gdb-set target-async 1" );
@@ -1557,6 +1582,8 @@ int main( int inNumArgs, char **inArgs ) {
             printf( "GDB could not find process:  %s\n", inArgs[3] );
             fclose( logFile );
             logFile = NULL;
+            delete [] progName;
+            delete [] progArgs;
             exit( 0 );
             }
         else if( strstr( gdbAttachResponse, 
@@ -1566,6 +1593,8 @@ int main( int inNumArgs, char **inArgs ) {
                     "(maybe you need to be root?)\n", inArgs[3] );
             fclose( logFile );
             logFile = NULL;
+            delete [] progName;
+            delete [] progArgs;
             exit( 0 );
             }
         
@@ -1575,6 +1604,8 @@ int main( int inNumArgs, char **inArgs ) {
         
         sendCommand( "-exec-continue" );
         }
+
+    delete [] progArgs;
     
     usleep( 100000 );
 
@@ -1586,13 +1617,15 @@ int main( int inNumArgs, char **inArgs ) {
     
     char *endOfPath = strrchr( inArgs[2], '/' );
 
-    char *progName = inArgs[2];
+    char *fullProgName = progName;
     
     if( endOfPath != NULL ) {
         progName = &( endOfPath[1] );
         }
     
-    char *pidCall = autoSprintf( "pidof %s", progName );\
+    char *pidCall = autoSprintf( "pidof %s", progName );
+
+    delete [] fullProgName;
 
     FILE *pidPipe = popen( pidCall, "r" );
     
