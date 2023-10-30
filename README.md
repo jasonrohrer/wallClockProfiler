@@ -43,10 +43,40 @@ Run ./myProgram with arguments and sample the stack 20 times per second until it
 ./wallClockProfiler 20 "./myProgram arg1 arg2"
 ```
 
-Attatch to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds:
+Attach to an existing process ./myProgram (PID 3042) and sample the stack 20 times per second for 60 seconds:
 ```
 ./wallClockProfiler 20 ./myProgram 3042 60
 ```
+
+Note that in order to attach to a process, you may need to be root, like this:
+```
+sudo ./wallClockProfiler 20 ./myProgram 3042 60
+```
+
+
+## variablePrinter
+
+Wouldn't it be nice to be able to inspect a variable in a live, running process while interrupting that process as little as possible?  For example what if you have a live server running, with clients connected, and you need to debug its current state, but you can't attach to it with a manual debugger, because that would interrupt the process too much.
+
+Using similar techniques to the ones used by wallClockProfiler, variablePrinter breaks your program at a specified line number and prints the value of a specified variable.
+
+Compile it like this:
+```
+g++ -o variablePrinter variablePrinter.cpp 
+```
+
+Run it like this:
+```
+./variablePrinter ./myProgram 7339 myProgram.cpp 153 myVariable
+```
+
+This will attached to PID 7339 and set a break point at line 153 of file myProgram.cpp.  When that breakpoint is reached, the value of myVariable will be printed.  And then the process will be detached.
+
+Note that attaching to a process may require root, like this:
+```
+sudo ./variablePrinter ./myProgram 7339 myProgram.cpp 153 myVariable
+```
+
 
 ## Sample Output
 From profiling the aforementioned test program that does a lot of random fseeks:
