@@ -1678,6 +1678,12 @@ int main( int inNumArgs, char **inArgs ) {
     
         // terminate at closing " character
         char *varContentsEnd = strstr( varContentsStart, "\"" );
+
+        while( varContentsEnd != NULL && varContentsEnd[-1] == '\\' ) {
+            // don't end on an escaped \"
+            // find a real unescaped "
+            varContentsEnd = strstr( &( varContentsEnd[1] ), "\"" );
+            }
         
         if( varContentsEnd != NULL ) {
             varContentsEnd[0] = '\0';
