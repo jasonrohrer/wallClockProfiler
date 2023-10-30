@@ -1642,12 +1642,11 @@ int main( int inNumArgs, char **inArgs ) {
     sendCommand( command ); 
     
     delete [] command; 
+    
+    
+    usleep( 100000 );
 
-    // after breakpoint-insert, we get a *stopped reponse back, because we're
-    // still stopped
-    // Wait for this here, before doing continue below, so this
-    // extra stopped is not still waiting in the pipe
-    waitForGDBInterruptResponse();
+    skipGDBResponse();
     
     
 
