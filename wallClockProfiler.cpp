@@ -1051,12 +1051,24 @@ static void checkProgramExited() {
         if( strstr( readBuff, "exited-normally" ) != NULL ) {
             programExited = true;
             
-            log( "GDB response contains 'exited-normally'", readBuff );
+            log( "Detected program exit:\n"
+                 "GDB response contains 'exited-normally'", readBuff );
             }
         else if( strstr( readBuff, "\"exited\"" ) != NULL ) {
             programExited = true;
             
-            log( "GDB response contains '\"exited\"'", readBuff );
+            log( "Detected program exit:\n"
+                 "GDB response contains '\"exited\"'", readBuff );
+            }
+        else if( strstr( readBuff, "stopped" ) != NULL &&
+                 strstr( readBuff, "signal-received" ) != NULL &&
+                 strstr( readBuff, "SIGINT" ) == NULL ) {
+            
+            programExited = true;
+            
+            log( "Detected program exit:\n"
+                 "GDB response shows that we stopped "
+                 "with a signal other than SIGINT", readBuff );
             }
         }
     }
