@@ -1053,6 +1053,11 @@ static void checkProgramExited() {
             
             log( "GDB response contains 'exited-normally'", readBuff );
             }
+        else if( strstr( readBuff, "\"exited\"" ) != NULL ) {
+            programExited = true;
+            
+            log( "GDB response contains '\"exited\"'", readBuff );
+            }
         }
     }
 
