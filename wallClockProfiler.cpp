@@ -1239,7 +1239,7 @@ static StackFrame parseFrame( char *inFrameString ) {
     closePos[0] ='\0';
     
     int numVals;
-    char **vals = split( openPos, ",", &numVals );
+    char **vals = split( openPos, "\",", &numVals );
     
     void *address = NULL;
     
@@ -1256,13 +1256,17 @@ static StackFrame parseFrame( char *inFrameString ) {
     newF.fileName = NULL;
     
     for( int i=0; i<numVals; i++ ) {
-        if( strstr( vals[i], "func=" ) == vals[i] ) {
-            newF.funcName = new char[ 500 ];
-            sscanf( vals[i], "func=\"%499s\"", newF.funcName );
+	if( strstr( vals[i], "func=\"" ) == vals[i] ) {
+            char *start = vals[i] + strlen("func=\"");
+            unsigned int len = strcspn(start, "\"") + 1;
+            newF.funcName = new char[ len ];
+            strncpy(newF.funcName, start, len);
             }
-        else if( strstr( vals[i], "file=" ) == vals[i] ) {
-            newF.fileName = new char[ 500 ];
-            sscanf( vals[i], "file=\"%499s\"", newF.fileName );
+        else if( strstr( vals[i], "file=\"" ) == vals[i] ) {
+            char *start = vals[i] + strlen("file=\"");
+            unsigned int len = strcspn(start, "\"") + 1;
+            newF.fileName = new char[ len ];
+            strncpy(newF.fileName, start, len);
             }
         else if( strstr( vals[i], "line=" ) == vals[i] ) {
             sscanf( vals[i], "line=\"%d\"", &newF.lineNum );
