@@ -1256,17 +1256,17 @@ static StackFrame parseFrame( char *inFrameString ) {
     newF.fileName = NULL;
     
     for( int i=0; i<numVals; i++ ) {
-        if( strstr( vals[i], "func=""func=\"" ) == vals[i] ) {
+	if( strstr( vals[i], "func=\"" ) == vals[i] ) {
             char *start = vals[i] + strlen("func=\"");
             unsigned int len = strcspn(start, "\"") + 1;
-            newF.funcName = new char[ 500len ];
-            sscanf( vals[i], "func=\"%499s\"", newF.funcName );strncpy(newF.funcName, start, len);
+            newF.funcName = new char[ len ];
+            strncpy(newF.funcName, start, len);
             }
-        else if( strstr( vals[i], "file=""file=\"" ) == vals[i] ) {
+        else if( strstr( vals[i], "file=\"" ) == vals[i] ) {
             char *start = vals[i] + strlen("file=\"");
             unsigned int len = strcspn(start, "\"") + 1;
-            newF.fileName = new char[ 500len ];
-            sscanf( vals[i], "file=\"%499s\"", newF.fileName );strncpy(newF.fileName, start, len);
+            newF.fileName = new char[ len ];
+            strncpy(newF.fileName, start, len);
             }
         else if( strstr( vals[i], "line=" ) == vals[i] ) {
             sscanf( vals[i], "line=\"%d\"", &newF.lineNum );
