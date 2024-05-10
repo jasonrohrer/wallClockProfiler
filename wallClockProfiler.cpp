@@ -1775,6 +1775,19 @@ int main( int inNumArgs, char **inArgs ) {
             char *funcName = s->frames.getElement( f )->funcName;
             
             char found = false;
+            for (int fdup = 0; fdup < f; fdup++) {
+                char *dupFuncName = s->frames.getElement(fdup)->funcName;
+                if (strcmp(funcName, dupFuncName) == 0) {
+                    // this function was already reported by this stack
+                    found = true;
+                    break;
+                    }
+                }
+            if (found) {
+                continue;
+                }
+
+            found = false;
             for( int r=0; r<functions.size(); r++ ) {
                 if( strcmp( functions.getElement( r )->funcName,
                             funcName ) == 0 ) {
