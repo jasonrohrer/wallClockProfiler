@@ -1,4 +1,3 @@
-#include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -930,8 +929,11 @@ static void usage() {
             "[detatch_sec]\n\n" );
     printf( "detatch_sec is the (optional) number of seconds before detatching and\n"
             "ending profiling (or -1 to stay attached forever, default)\n\n" );
-    printf ("skipSignals is the (optional) comma separated list of signals\n"
-            "that should not stop the execution of the program\n");
+    printf( "skipSignals is the (optional) comma separated list of signals\n"
+            "that should not stop the execution of the program\n\n" );
+
+    printf( "Note that ./myProgram can include a program name with program\n"
+            "arguments in quotes like this:  \"./myProgram arg1 arg2\"\n\n" );
     
     exit( 1 );
     }
@@ -1493,22 +1495,21 @@ int main( int inNumArgs, char **inArgs ) {
     
     // Parse signals from comma-sepparated list
     // For example to profile postgres we need to skip SIGUSR1
-    if (strncmp(inArgs[nextArg], "--skipSignals=", 14) == 0) {
-        char * signals = inArgs[nextArg] + 14;
-        char * signal;
-        signal = strtok(signals, ",");
-        while (signal != NULL)
-        {
-            skipSignals.push_back(signal);
-            signal = strtok(NULL, ",");
-        }
+    if( strncmp( inArgs[ nextArg ], "--skipSignals=", 14 ) == 0 ) {
+        char *signals = inArgs[ nextArg ] + 14;
+        char *signal;
+        signal = strtok( signals, "," );
+        while( signal != NULL ) {
+            skipSignals.push_back( signal );
+            signal = strtok( NULL, "," );
+            }
         nextArg++;
-    } 
+        } 
     
-    bool isMaster = false;
+    char runningDirect = false;
     if( inNumArgs == 3 || inNumArgs == 4 && skipSignals.size() > 0) {
-        isMaster = true;
-    }
+        runningDirect = true;
+        }
 
     int readPipe[2];
     int writePipe[2];
@@ -1594,17 +1595,20 @@ int main( int inNumArgs, char **inArgs ) {
 
     
     sendCommand( "handle SIGPIPE nostop noprint pass" );
+    
     skipGDBResponse();
     
     // Skip signals specified in arguments
     for( int i=0; i<skipSignals.size(); i++) {
-        char *command = autoSprintf("handle %s nostop noprint pass", skipSignals.getElementDirect(i));
-        sendCommand(command);
+        char *command =
+            autoSprintf("handle %s nostop noprint pass",
+                        skipSignals.getElementDirect(i) );
+        sendCommand( command );
         skipGDBResponse();
-    }
+        }
 
 
-    if( isMaster ) {
+    if( runningDirect ) {
         char *runCommand = autoSprintf( "run %s > wcOut.txt", progArgs );
 
         printf( "\n\nStarting gdb program with '%s', "
@@ -1740,7 +1744,7 @@ int main( int inNumArgs, char **inArgs ) {
         usleep( usPerSample );
     
         // interrupt
-        if( isMaster ) {
+        if( runningDirect ) {
             // we ran our program with run above to redirect output
             // thus -exec-interrupt won't work
             log( "Sending SIGINT to target process", progName );
@@ -1775,7 +1779,7 @@ int main( int inNumArgs, char **inArgs ) {
     else {
         printf( "Detatching from program\n" );
         
-        if( isMaster ) {
+        if( runningDirect ) {
             // we ran our program with run above to redirect output
             // thus -exec-interrupt won't work
             log( "Sending SIGINT to target process", inArgs[2] );
