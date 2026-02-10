@@ -1028,6 +1028,11 @@ static int fillBufferWithResponse( const char *inWaitingFor = NULL ) {
                 programExited = true;
                 return readSoFar;
                 }
+	    else if( readSoFar > 10 &&
+                     strstr( readBuff, "A problem internal to GDB has been detected" ) != NULL ) {
+                programExited = true;
+                return readSoFar;
+                }
             }
         else if( numRead == -1 ) {
             if( !( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
