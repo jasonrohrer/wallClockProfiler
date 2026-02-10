@@ -1,3 +1,4 @@
+#include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -923,12 +924,14 @@ char *autoSprintf( const char* inFormatString, ... ) {
 
 static void usage() {
     printf( "\nDirect call usage:\n\n"
-            "    wallClockProfiler samples_per_sec ./myProgram\n\n" );
+            "    wallClockProfiler samples_per_sec [--skipSignals=SIG1,SIG2,..] ./myProgram\n\n" );
     printf( "Attach to existing process (may require root):\n\n"
-            "    wallClockProfiler samples_per_sec ./myProgram pid "
+            "    wallClockProfiler samples_per_sec [--skipSignals=SIG1,SIG2,..] ./myProgram pid "
             "[detatch_sec]\n\n" );
     printf( "detatch_sec is the (optional) number of seconds before detatching and\n"
             "ending profiling (or -1 to stay attached forever, default)\n\n" );
+    printf ("skipSignals is the (optional) comma separated list of signals\n"
+            "that should not stop the execution of the program\n");
     
     exit( 1 );
     }
@@ -1475,15 +1478,35 @@ void printStack( Stack inStack, int inNumTotalSamples ) {
 
 int main( int inNumArgs, char **inArgs ) {
     
-    if( inNumArgs != 3 && inNumArgs != 4 && inNumArgs != 5 ) {
+    if( inNumArgs != 3 && inNumArgs != 4 && inNumArgs != 5 && inNumArgs != 6) {
         usage();
         }
     
+    unsigned int nextArg = 1;
+    
     float samplesPerSecond = 100;
+    sscanf( inArgs[nextArg++], "%f", &samplesPerSecond );
     
-    sscanf( inArgs[1], "%f", &samplesPerSecond );
+    SimpleVector<char *> skipSignals;
     
-
+    // Parse signals from comma-sepparated list
+    // For example to profile postgres we need to skip SIGUSR1
+    if (strncmp(inArgs[nextArg], "--skipSignals=", 14) == 0) {
+        char * signals = inArgs[nextArg] + 14;
+        char * signal;
+        signal = strtok(signals, ",");
+        while (signal != NULL)
+        {
+            skipSignals.push_back(signal);
+            signal = strtok(NULL, ",");
+        }
+        nextArg++;
+    } 
+    
+    bool isMaster = false;
+    if( inNumArgs == 3 || inNumArgs == 4 && skipSignals.size() > 0) {
+        isMaster = true;
+    }
 
     int readPipe[2];
     int writePipe[2];
@@ -1492,7 +1515,7 @@ int main( int inNumArgs, char **inArgs ) {
     pipe( writePipe );
 
 
-    char *progName = stringDuplicate( inArgs[2] );
+    char *progName = stringDuplicate( inArgs[nextArg++] );
     char *progArgs = stringDuplicate( "" );
     
     char *spacePos = strstr( progName, " " );
@@ -1569,12 +1592,17 @@ int main( int inNumArgs, char **inArgs ) {
 
     
     sendCommand( "handle SIGPIPE nostop noprint pass" );
-    
     skipGDBResponse();
     
+    // Skip signals specified in arguments
+    for( int i=0; i<skipSignals.size(); i++) {
+        char *command = autoSprintf("handle %s nostop noprint pass", skipSignals.getElementDirect(i));
+        sendCommand(command);
+        skipGDBResponse();
+    }
 
 
-    if( inNumArgs == 3 ) {
+    if( isMaster ) {
         char *runCommand = autoSprintf( "run %s > wcOut.txt", progArgs );
 
         printf( "\n\nStarting gdb program with '%s', "
@@ -1588,9 +1616,10 @@ int main( int inNumArgs, char **inArgs ) {
         sendCommand( "-gdb-set target-async 1" );
         skipGDBResponse();
 
-        printf( "\n\nAttaching to PID %s\n", inArgs[3] );
+        char *attachPid = inArgs[nextArg++];
+        printf( "\n\nAttaching to PID %s\n", attachPid );
 
-        char *command = autoSprintf( "-target-attach %s\n", inArgs[3] );
+        char *command = autoSprintf( "-target-attach %s\n", attachPid );
 
         sendCommand( command ); 
 
@@ -1601,7 +1630,7 @@ int main( int inNumArgs, char **inArgs ) {
         
         if( strstr( gdbAttachResponse, "ptrace: No such process." ) != NULL ) {
             delete [] gdbAttachResponse;
-            printf( "GDB could not find process:  %s\n", inArgs[3] );
+            printf( "GDB could not find process:  %s\n", attachPid );
             fclose( logFile );
             logFile = NULL;
             delete [] progName;
@@ -1612,7 +1641,7 @@ int main( int inNumArgs, char **inArgs ) {
                          "ptrace: Operation not permitted." ) != NULL ) {
             delete [] gdbAttachResponse;
             printf( "GDB could not attach to process %s "
-                    "(maybe you need to be root?)\n", inArgs[3] );
+                    "(maybe you need to be root?)\n", attachPid );
             fclose( logFile );
             logFile = NULL;
             delete [] progName;
@@ -1633,11 +1662,11 @@ int main( int inNumArgs, char **inArgs ) {
 
     skipGDBResponse();
     
-    printf( "Debugging program '%s'\n", inArgs[2] );
+    printf( "Debugging program '%s'\n", progName );
 
     char rawProgramName[100];
     
-    char *endOfPath = strrchr( inArgs[2], '/' );
+    char *endOfPath = strrchr( progName, '/' );
 
     char *fullProgName = progName;
     
@@ -1694,8 +1723,8 @@ int main( int inNumArgs, char **inArgs ) {
     
     int detatchSeconds = -1;
     
-    if( inNumArgs == 5 ) {
-        sscanf( inArgs[4], "%d", &detatchSeconds );
+    if( inNumArgs > nextArg ) {
+        sscanf( inArgs[nextArg], "%d", &detatchSeconds );
         }
     if( detatchSeconds != -1 ) {
         printf( "Will detatch automatically after %d seconds\n",
@@ -1709,10 +1738,10 @@ int main( int inNumArgs, char **inArgs ) {
         usleep( usPerSample );
     
         // interrupt
-        if( inNumArgs == 3 ) {
+        if( isMaster ) {
             // we ran our program with run above to redirect output
             // thus -exec-interrupt won't work
-            log( "Sending SIGINT to target process", inArgs[2] );
+            log( "Sending SIGINT to target process", progName );
         
             kill( pid, SIGINT );
             }
@@ -1744,7 +1773,7 @@ int main( int inNumArgs, char **inArgs ) {
     else {
         printf( "Detatching from program\n" );
         
-        if( inNumArgs == 3 ) {
+        if( isMaster ) {
             // we ran our program with run above to redirect output
             // thus -exec-interrupt won't work
             log( "Sending SIGINT to target process", inArgs[2] );
