@@ -923,17 +923,25 @@ char *autoSprintf( const char* inFormatString, ... ) {
 
 static void usage() {
     printf( "\nDirect call usage:\n\n"
-            "    wallClockProfiler samples_per_sec [--skipSignals=SIG1,SIG2,..] ./myProgram\n\n" );
+            "    wallClockProfiler samples_per_sec ./myProgram\n\n" );
     printf( "Attach to existing process (may require root):\n\n"
-            "    wallClockProfiler samples_per_sec [--skipSignals=SIG1,SIG2,..] ./myProgram pid "
+            "    wallClockProfiler samples_per_sec ./myProgram pid "
             "[detatch_sec]\n\n" );
-    printf( "detatch_sec is the (optional) number of seconds before detatching and\n"
+    printf( "detatch_sec is the (optional) number of seconds before "
+            "detatching and\n"
             "ending profiling (or -1 to stay attached forever, default)\n\n" );
-    printf( "skipSignals is the (optional) comma separated list of signals\n"
-            "that should not stop the execution of the program\n\n" );
 
+    printf( "To ignore signals, add the following extra argument AFTER "
+            "samples_per_sec\n"
+            "     --ignore=SIG1,SIG2,...\n" );
+    printf( "This is an optional comma-separated list of signals\n"
+            "that should not stop the execution of the program, "
+            "for example:\n" );
+    printf( "    wallClockProfiler 20 --ignore=SIGUSR1 ./myProgram\n\n" );
+    
     printf( "Note that ./myProgram can include a program name with program\n"
-            "arguments in quotes like this:  \"./myProgram arg1 arg2\"\n\n" );
+            "arguments in quotes like this:\n"
+            "    wallClockProfiler 20 \"./myProgram arg1 arg2\"\n\n" );
     
     exit( 1 );
     }
@@ -1491,23 +1499,23 @@ int main( int inNumArgs, char **inArgs ) {
     float samplesPerSecond = 100;
     sscanf( inArgs[nextArg++], "%f", &samplesPerSecond );
     
-    SimpleVector<char *> skipSignals;
+    SimpleVector<char *> ignoreSignals;
     
     // Parse signals from comma-sepparated list
     // For example to profile postgres we need to skip SIGUSR1
-    if( strncmp( inArgs[ nextArg ], "--skipSignals=", 14 ) == 0 ) {
-        char *signals = inArgs[ nextArg ] + 14;
+    if( strncmp( inArgs[ nextArg ], "--ignore=", 9 ) == 0 ) {
+        char *signals = inArgs[ nextArg ] + 9;
         char *signal;
         signal = strtok( signals, "," );
         while( signal != NULL ) {
-            skipSignals.push_back( signal );
+            ignoreSignals.push_back( signal );
             signal = strtok( NULL, "," );
             }
         nextArg++;
         } 
     
     char runningDirect = false;
-    if( inNumArgs == 3 || inNumArgs == 4 && skipSignals.size() > 0) {
+    if( inNumArgs == 3 || inNumArgs == 4 && ignoreSignals.size() > 0) {
         runningDirect = true;
         }
 
@@ -1599,10 +1607,11 @@ int main( int inNumArgs, char **inArgs ) {
     skipGDBResponse();
     
     // Skip signals specified in arguments
-    for( int i=0; i<skipSignals.size(); i++) {
+    for( int i=0; i<ignoreSignals.size(); i++) {
+        printf( "Ignoring signal:  %s\n", ignoreSignals.getElementDirect(i) );
         char *command =
-            autoSprintf("handle %s nostop noprint pass",
-                        skipSignals.getElementDirect(i) );
+            autoSprintf( "handle %s nostop noprint pass",
+                         ignoreSignals.getElementDirect(i) );
         sendCommand( command );
         skipGDBResponse();
         }
