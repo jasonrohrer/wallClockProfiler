@@ -212,34 +212,44 @@ int main( int inNumArgs, char **inArgs ) {
             while( numRead == 4 ) {
 
                 int stackPos;
-                char funName[200];
+                char funName[1024];
                 char fileName[200];
-                memset( funName, 0, 200 );
-                memset( fileName, 0, 200 );
+                memset( funName, 0, sizeof(funName) );
+                memset( fileName, 0, sizeof(fileName) );
                 
                 int curPos = ftell( reportFile );
                 int lineNum;
-                numRead = fscanf( reportFile, "%d: %199s   (at %199[^:]:%d)",
-                                  &stackPos, funName, fileName, &lineNum );
                 
-                if( numRead != 4 ) {
+                numRead = fscanf( reportFile, "%d: %1023[^\n]",
+                                  &stackPos, funName );
+
+                if (numRead != 2) {
                     // rewind
                     fseek( reportFile, curPos, SEEK_SET );
+                    break;
+                }
 
-                    // try again, allowing blank for file name
-                    numRead = fscanf( reportFile, 
-                                      "%d: %199s   (at :%d)",
-                                      &stackPos, funName, &lineNum );
-                    
-                    if( numRead != 3 ) {
-                        // rewind again
-                        fseek( reportFile, curPos, SEEK_SET );
+                char *at = strstr(funName, "   (at ");
+                if (at) {
+                    int numScanned = sscanf(at, "   (at %199[^:]:%d)", fileName, &lineNum);
+
+                    if (numScanned == 2) {
+                        numRead += numScanned;
                         }
                     else {
-                        fileName[0] = '?';
-                        fileName[1] = '\0';
-                        numRead = 4;
+                        numScanned = sscanf(at, "   (at :%d)", &lineNum);
+                        if(numScanned == 1) {
+                            strcpy(fileName, "?");
+                            numRead = 4;
+                            }
+                        else {
+                            // rewind again
+                            fseek( reportFile, curPos, SEEK_SET );
+                            }
                         }
+
+                    // terminate the function name
+                    *at = '\0';
                     }
 
                 if( numRead == 4 ) {
